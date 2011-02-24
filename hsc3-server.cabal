@@ -14,6 +14,9 @@ Tested-With:        GHC == 6.10.1, GHC == 6.12.3, GHC == 7.0.1
 Build-Type:         Simple
 Cabal-Version:      >= 1.6
 
+Extra-Source-Files:
+    include/Accessor.h
+
 Library
     Exposed-Modules:
         Sound.SC3.Server.Allocator
