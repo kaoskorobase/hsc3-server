@@ -1,5 +1,5 @@
 Name:               hsc3-server
-Version:            0.0.0
+Version:            0.1.0
 Synopsis:           SuperCollider server resource management and synchronization.
 Description:        This library provides abstractions for managing SuperCollider server resources like node, buffer and bus ids and synchronization primitives.
 License:            GPL
