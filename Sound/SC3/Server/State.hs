@@ -10,13 +10,14 @@
 module Sound.SC3.Server.State (
     State
   , options
-  , IntAllocator
-  , NodeIdAllocator
-  , BusIdAllocator
-  , BufferIdAllocator
+  , SyncId
+  , SyncIdAllocator
   , NodeId
-  , BusId
+  , NodeIdAllocator
   , BufferId
+  , BufferIdAllocator
+  , BusId
+  , BusIdAllocator
   , syncId
   , nodeId
   , bufferId
@@ -42,53 +43,56 @@ import           Sound.SC3.Server.Allocator.SimpleAllocator (SimpleAllocator)
 import qualified Sound.SC3.Server.Allocator.SimpleAllocator as SAlloc
 import           Sound.SC3.Server.Options (ServerOptions(..))
 
--- Hide the actual allocator
-data IntAllocator = forall a . (IdAllocator a, NFData a, Id a ~ Int) => IntAllocator !a
+allocM f = liftM (second f) . Alloc.alloc
+freeM f i = liftM f . Alloc.free i
 
-instance IdAllocator IntAllocator where
-    type Id IntAllocator = Int
-    alloc  (IntAllocator a) = liftM (second IntAllocator) $ Alloc.alloc a
-    free i (IntAllocator a) = liftM         IntAllocator  $ Alloc.free i a
+newtype SyncId = SyncId Int deriving (Bounded, Enum, Eq, Integral, NFData, Num, Ord, Real, Show)
+data SyncIdAllocator = forall a . (IdAllocator a, NFData a, Id a ~ SyncId) => SyncIdAllocator !a
 
-instance NFData IntAllocator where
-    rnf (IntAllocator a) = rnf a `seq` ()
+instance IdAllocator SyncIdAllocator where
+    type Id SyncIdAllocator = SyncId
+    alloc  (SyncIdAllocator a) = allocM SyncIdAllocator a
+    free i (SyncIdAllocator a) = freeM SyncIdAllocator i a
 
-newtype NodeId       = NodeId Int deriving (Bounded, Enum, Eq, Integral, NFData, Num, Ord, Real, Show)
+instance NFData SyncIdAllocator where
+    rnf (SyncIdAllocator a) = rnf a `seq` ()
+
+newtype NodeId = NodeId Int deriving (Bounded, Enum, Eq, Integral, NFData, Num, Ord, Real, Show)
 data NodeIdAllocator = forall a . (IdAllocator a, NFData a, Id a ~ NodeId) => NodeIdAllocator !a
 
 instance IdAllocator NodeIdAllocator where
     type Id NodeIdAllocator = NodeId
-    alloc  (NodeIdAllocator a) = liftM (second NodeIdAllocator) $ Alloc.alloc a
-    free i (NodeIdAllocator a) = liftM         NodeIdAllocator  $ Alloc.free i a
+    alloc  (NodeIdAllocator a) = allocM NodeIdAllocator a
+    free i (NodeIdAllocator a) = freeM NodeIdAllocator i a
 
 instance NFData NodeIdAllocator where
     rnf (NodeIdAllocator a) = rnf a `seq` ()
 
-newtype BufferId       = BufferId Int deriving (Bounded, Enum, Eq, Integral, NFData, Num, Ord, Real, Show)
+newtype BufferId = BufferId Int deriving (Bounded, Enum, Eq, Integral, NFData, Num, Ord, Real, Show)
 data BufferIdAllocator = forall a . (IdAllocator a, NFData a, Id a ~ BufferId) => BufferIdAllocator !a
 
 instance IdAllocator BufferIdAllocator where
     type Id BufferIdAllocator = BufferId
-    alloc  (BufferIdAllocator a) = liftM (second BufferIdAllocator) $ Alloc.alloc a
-    free i (BufferIdAllocator a) = liftM         BufferIdAllocator  $ Alloc.free i a
+    alloc  (BufferIdAllocator a) = allocM BufferIdAllocator a
+    free i (BufferIdAllocator a) = freeM BufferIdAllocator i a
 
 instance NFData BufferIdAllocator where
     rnf (BufferIdAllocator a) = rnf a `seq` ()
 
-newtype BusId       = BusId Int deriving (Bounded, Enum, Eq, Integral, NFData, Num, Ord, Real, Show)
+newtype BusId = BusId Int deriving (Bounded, Enum, Eq, Integral, NFData, Num, Ord, Real, Show)
 data BusIdAllocator = forall a . (IdAllocator a, NFData a, Id a ~ BusId) => BusIdAllocator !a
 
 instance IdAllocator BusIdAllocator where
     type Id BusIdAllocator = BusId
-    alloc  (BusIdAllocator a) = liftM (second BusIdAllocator) $ Alloc.alloc a
-    free i (BusIdAllocator a) = liftM         BusIdAllocator  $ Alloc.free i a
+    alloc  (BusIdAllocator a) = allocM BusIdAllocator a
+    free i (BusIdAllocator a) = freeM BusIdAllocator i a
 
 instance NFData BusIdAllocator where
     rnf (BusIdAllocator a) = rnf a `seq` ()
 
 data State = State {
     _options      :: !ServerOptions
-  , _syncId       :: !IntAllocator
+  , _syncId       :: !SyncIdAllocator
   , _nodeId       :: !NodeIdAllocator
   , _bufferId     :: !BufferIdAllocator
   , _controlBusId :: !BusIdAllocator
@@ -105,7 +109,7 @@ instance NFData State where
         rnf x6 `seq` ()
 
 ACCESSOR(options,      _options,      State, ServerOptions)
-ACCESSOR(syncId,       _syncId,       State, IntAllocator)
+ACCESSOR(syncId,       _syncId,       State, SyncIdAllocator)
 ACCESSOR(nodeId,       _nodeId,       State, NodeIdAllocator)
 ACCESSOR(bufferId,     _bufferId,     State, BufferIdAllocator)
 ACCESSOR(controlBusId, _controlBusId, State, BusIdAllocator)
@@ -125,8 +129,8 @@ new os =
       , _audioBusId   = aid
     }
     where
-        sid = IntAllocator
-                (SAlloc.cons :: SimpleAllocator Int)
+        sid = SyncIdAllocator
+                (SAlloc.cons :: SimpleAllocator SyncId)
         nid = NodeIdAllocator
                 (SetAlloc.cons $ Alloc.range 1000 (1000 + fromIntegral (maxNumberOfNodes os)) :: SetAllocator NodeId)
         bid = BufferIdAllocator

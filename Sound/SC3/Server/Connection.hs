@@ -21,7 +21,7 @@ import qualified Sound.OpenSoundControl as OSC
 
 import           Sound.SC3 (notify)
 import           Sound.SC3.Server.Notification (done, synced)
-import           Sound.SC3.Server.State (State)
+import           Sound.SC3.Server.State (State, SyncId)
 import qualified Sound.SC3.Server.State as State
 import qualified Sound.SC3.Server.State.Concurrent as IOState
 
@@ -100,12 +100,12 @@ syncAddress s a = s `syncWith` hasAddress
         hasAddress _                = Nothing
 
 -- | Append a @\/sync@ message to an OSC packet.
-appendSync :: OSC -> Int -> OSC
+appendSync :: OSC -> SyncId -> OSC
 appendSync p i =
     case p of
         m@(Message _ _) -> Bundle immediately [m, s]
         (Bundle t xs)   -> Bundle t (xs ++ [s])
-    where s = Message "/sync" [Int i]
+    where s = Message "/sync" [Int (fromIntegral i)]
 
 sync :: OSC -> Connection -> IO ()
 sync osc c = do

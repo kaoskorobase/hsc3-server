@@ -9,7 +9,7 @@ module Sound.SC3.Server.Notification (
   , n_go , n_end , n_off , n_on , n_move , n_info
 ) where
 
-import Sound.SC3.Server.State (NodeId)
+import Sound.SC3.Server.State (NodeId, SyncId)
 import Sound.OpenSoundControl (OSC(..), Datum(..))
 
 data Status = Status {
@@ -33,9 +33,9 @@ tr n (Just i) (Message "/tr" [Int n', Int i', Float r]) | fromIntegral n == n' &
 tr n Nothing  (Message "/tr" [Int n', Int _, Float r])  | fromIntegral n == n' = Just r
 tr _ _        _                                         = Nothing
 
-synced :: Int -> OSC -> Maybe Int
-synced i (Message "/synced" [Int j]) | j == i = Just i
-synced _ _                                    = Nothing
+synced :: SyncId -> OSC -> Maybe SyncId
+synced i (Message "/synced" [Int j]) | fromIntegral j == i = Just i
+synced _ _                                                 = Nothing
 
 normalize :: String -> String
 normalize ('/':s) = s
