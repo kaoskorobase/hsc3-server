@@ -1,4 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
 module Sound.SC3.Server.Process.Monad (
     withSynth
   , withInternal

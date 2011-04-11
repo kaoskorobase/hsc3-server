@@ -1,9 +1,9 @@
 {-# LANGUAGE
     CPP
   , ExistentialQuantification
-  , FlexibleContexts
+  , GADTs
   , GeneralizedNewtypeDeriving
-  , MultiParamTypeClasses #-}
+  , TypeFamilies #-}
 
 #include "Accessor.h"
 
@@ -34,7 +34,7 @@ import           Control.Arrow (second)
 import           Control.DeepSeq (NFData(..))
 import           Control.Monad (liftM)
 import           Data.Accessor
-import           Sound.SC3.Server.Allocator (IdAllocator)
+import           Sound.SC3.Server.Allocator (IdAllocator(..))
 import qualified Sound.SC3.Server.Allocator as Alloc
 import           Sound.SC3.Server.Allocator.SetAllocator (SetAllocator)
 import qualified Sound.SC3.Server.Allocator.SetAllocator as SetAlloc
@@ -43,9 +43,10 @@ import qualified Sound.SC3.Server.Allocator.SimpleAllocator as SAlloc
 import           Sound.SC3.Server.Options (ServerOptions(..))
 
 -- Hide the actual allocator
-data IntAllocator = forall a . (IdAllocator Int a, NFData a) => IntAllocator !a
+data IntAllocator = forall a . (IdAllocator a, NFData a, Id a ~ Int) => IntAllocator !a
 
-instance IdAllocator Int IntAllocator where
+instance IdAllocator IntAllocator where
+    type Id IntAllocator = Int
     alloc  (IntAllocator a) = liftM (second IntAllocator) $ Alloc.alloc a
     free i (IntAllocator a) = liftM         IntAllocator  $ Alloc.free i a
 
@@ -53,9 +54,10 @@ instance NFData IntAllocator where
     rnf (IntAllocator a) = rnf a `seq` ()
 
 newtype NodeId       = NodeId Int deriving (Bounded, Enum, Eq, Integral, NFData, Num, Ord, Real, Show)
-data NodeIdAllocator = forall a . (IdAllocator NodeId a, NFData a) => NodeIdAllocator !a
+data NodeIdAllocator = forall a . (IdAllocator a, NFData a, Id a ~ NodeId) => NodeIdAllocator !a
 
-instance IdAllocator NodeId NodeIdAllocator where
+instance IdAllocator NodeIdAllocator where
+    type Id NodeIdAllocator = NodeId
     alloc  (NodeIdAllocator a) = liftM (second NodeIdAllocator) $ Alloc.alloc a
     free i (NodeIdAllocator a) = liftM         NodeIdAllocator  $ Alloc.free i a
 
@@ -63,9 +65,10 @@ instance NFData NodeIdAllocator where
     rnf (NodeIdAllocator a) = rnf a `seq` ()
 
 newtype BufferId       = BufferId Int deriving (Bounded, Enum, Eq, Integral, NFData, Num, Ord, Real, Show)
-data BufferIdAllocator = forall a . (IdAllocator BufferId a, NFData a) => BufferIdAllocator !a
+data BufferIdAllocator = forall a . (IdAllocator a, NFData a, Id a ~ BufferId) => BufferIdAllocator !a
 
-instance IdAllocator BufferId BufferIdAllocator where
+instance IdAllocator BufferIdAllocator where
+    type Id BufferIdAllocator = BufferId
     alloc  (BufferIdAllocator a) = liftM (second BufferIdAllocator) $ Alloc.alloc a
     free i (BufferIdAllocator a) = liftM         BufferIdAllocator  $ Alloc.free i a
 
@@ -73,9 +76,10 @@ instance NFData BufferIdAllocator where
     rnf (BufferIdAllocator a) = rnf a `seq` ()
 
 newtype BusId       = BusId Int deriving (Bounded, Enum, Eq, Integral, NFData, Num, Ord, Real, Show)
-data BusIdAllocator = forall a . (IdAllocator BusId a, NFData a) => BusIdAllocator !a
+data BusIdAllocator = forall a . (IdAllocator a, NFData a, Id a ~ BusId) => BusIdAllocator !a
 
-instance IdAllocator BusId BusIdAllocator where
+instance IdAllocator BusIdAllocator where
+    type Id BusIdAllocator = BusId
     alloc  (BusIdAllocator a) = liftM (second BusIdAllocator) $ Alloc.alloc a
     free i (BusIdAllocator a) = liftM         BusIdAllocator  $ Alloc.free i a
 

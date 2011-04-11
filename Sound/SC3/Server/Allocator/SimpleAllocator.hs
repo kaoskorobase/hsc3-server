@@ -1,6 +1,4 @@
-{-# LANGUAGE FlexibleContexts
-           , FlexibleInstances
-           , MultiParamTypeClasses #-}
+{-# LANGUAGE TypeFamilies #-}
 module Sound.SC3.Server.Allocator.SimpleAllocator (
     SimpleAllocator
   , cons
@@ -23,6 +21,7 @@ sa_alloc (SimpleAllocator n) = return (n, SimpleAllocator (n+1))
 sa_free :: (Monad m) => i -> SimpleAllocator i -> m (SimpleAllocator i)
 sa_free _ sa = return sa
 
-instance (Integral i) => IdAllocator i (SimpleAllocator i) where
+instance (Integral i) => IdAllocator (SimpleAllocator i) where
+    type Id (SimpleAllocator i) = i
     alloc = sa_alloc
     free  = sa_free

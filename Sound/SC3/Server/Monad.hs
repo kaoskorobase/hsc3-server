@@ -35,7 +35,7 @@ import           Control.Monad.Reader (MonadReader, ReaderT(..), ask, asks, lift
 import           Control.Monad.Trans (MonadIO, MonadTrans, liftIO)
 import           Data.Accessor
 import           Sound.SC3 (Rate(..))
-import           Sound.SC3.Server.Allocator (IdAllocator, RangeAllocator, Range)
+import           Sound.SC3.Server.Allocator (Id, IdAllocator, RangeAllocator, Range)
 import           Sound.SC3.Server.Connection (Connection)
 import qualified Sound.SC3.Server.Connection as C
 -- import           Sound.SC3.Server.Process.Options (ServerOptions, numberOfInputBusChannels, numberOfOutputBusChannels)
@@ -80,19 +80,19 @@ busId KR = State.controlBusId
 busId r  = error ("No bus allocator for rate " ++ show r)
 
 
-alloc :: (IdAllocator i a, MonadIO m) => Allocator a -> ServerT m i
+alloc :: (IdAllocator a, MonadIO m) => Allocator a -> ServerT m (Id a)
 alloc a = asks C.state >>= liftIO . IOState.alloc a
 
-allocMany :: (IdAllocator i a, MonadIO m) => Allocator a -> Int -> ServerT m [i]
+allocMany :: (IdAllocator a, MonadIO m) => Allocator a -> Int -> ServerT m [Id a]
 allocMany a n = asks C.state >>= liftIO . flip (IOState.allocMany a) n
 
-free :: (IdAllocator i a, MonadIO m) => Allocator a -> i -> ServerT m ()
+free :: (IdAllocator a, MonadIO m) => Allocator a -> Id a -> ServerT m ()
 free a i = asks C.state >>= liftIO . flip (IOState.free a) i
 
-allocRange :: (RangeAllocator i a, MonadIO m) => Allocator a -> Int -> ServerT m (Range i)
+allocRange :: (RangeAllocator a, MonadIO m) => Allocator a -> Int -> ServerT m (Range (Id a))
 allocRange a n = asks C.state >>= liftIO . flip (IOState.allocRange a) n
 
-freeRange :: (RangeAllocator i a, MonadIO m) => Allocator a -> Range i -> ServerT m ()
+freeRange :: (RangeAllocator a, MonadIO m) => Allocator a -> Range (Id a) -> ServerT m ()
 freeRange a r = asks C.state >>= liftIO . flip (IOState.freeRange a) r
 
 fork :: (MonadIO m) => ServerT IO () -> ServerT m ThreadId

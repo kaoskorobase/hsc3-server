@@ -1,7 +1,6 @@
 {-# LANGUAGE BangPatterns
            , FlexibleContexts
-           , FlexibleInstances
-           , MultiParamTypeClasses #-}
+           , TypeFamilies #-}
 module Sound.SC3.Server.Allocator.SetAllocator (
     SetAllocator
   , cons
@@ -49,6 +48,7 @@ sa_free i (SetAllocator r u n) | Set.member (fromIntegral i) u = return (SetAllo
                                | otherwise = failure InvalidId
     where u' = Set.delete (fromIntegral i) u
 
-instance (Integral i) => IdAllocator i (SetAllocator i) where
+instance (Integral i) => IdAllocator (SetAllocator i) where
+    type Id (SetAllocator i) = i
     alloc = sa_alloc
     free  = sa_free
