@@ -21,8 +21,6 @@ import Test.Framework (Test, testGroup)
 import Test.Framework.Providers.QuickCheck2 (testProperty)
 import Test.QuickCheck
 
-import Debug.Trace
-
 data WrappedIdAllocator = forall a . (IdAllocator a, Id a ~ Id WrappedIdAllocator, Show a) => WrappedIdAllocator a
 
 instance Show WrappedIdAllocator where
