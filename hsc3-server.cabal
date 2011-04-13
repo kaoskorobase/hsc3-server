@@ -12,7 +12,7 @@ Stability:          experimental
 Homepage:           http://space.k-hornz.de/software/hsc3-server
 Tested-With:        GHC == 6.10.1, GHC == 6.12.3, GHC == 7.0.1
 Build-Type:         Simple
-Cabal-Version:      >= 1.6
+Cabal-Version:      >= 1.9.2
 
 Extra-Source-Files:
     include/Accessor.h
@@ -36,9 +36,9 @@ Library
         base >= 3 && < 5
       , bitset >= 1.0
       , containers
-      , data-accessor
-      , deepseq
-      , failure
+      , data-accessor >= 0.2
+      , deepseq >= 1.1
+      , failure >= 0.1
       , hosc >= 0.8
       , hsc3 >= 0.7
       , hsc3-process >= 0.5
@@ -51,5 +51,20 @@ Library
         -W
 
 Source-Repository head
-  Type:             git
-  Location:         git://github.com/kaoskorobase/hsc3-server.git
+    Type:       git
+    Location:   git://github.com/kaoskorobase/hsc3-server.git
+
+Test-Suite hsc3-server-test
+    Type: exitcode-stdio-1.0
+    Main-Is: test.hs
+    Build-Depends:
+        base
+      , bitset >= 1.0
+      , deepseq >= 1.1
+      , failure >= 0.1
+      , QuickCheck >= 2.4
+      , random >= 1.0
+      , test-framework
+      , test-framework-quickcheck2
+      , transformers >= 0.2
+    Hs-Source-Dirs: tests, .
