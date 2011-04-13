@@ -24,6 +24,7 @@ Library
         Sound.SC3.Server.Allocator.BlockAllocator.FirstFit
         Sound.SC3.Server.Allocator.SetAllocator
         Sound.SC3.Server.Allocator.SimpleAllocator
+        Sound.SC3.Server.Allocator.Wrapped
         Sound.SC3.Server.Connection
         Sound.SC3.Server.Monad
         Sound.SC3.Server.Notification
