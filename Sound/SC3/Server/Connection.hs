@@ -20,7 +20,7 @@ import           Sound.OpenSoundControl (Datum(..), OSC(..), Transport, immediat
 import qualified Sound.OpenSoundControl as OSC
 
 import           Sound.SC3 (notify)
-import           Sound.SC3.Server.Notification (done, synced)
+import           Sound.SC3.Server.Notification (Notification, done, synced)
 import           Sound.SC3.Server.State (State, SyncId)
 import qualified Sound.SC3.Server.State as State
 import qualified Sound.SC3.Server.State.Concurrent as IOState
@@ -75,10 +75,14 @@ addListener l c = modifyMVar
 removeListener :: ListenerId -> Connection -> IO ()
 removeListener uid c = modifyMVar_ (listeners c) (\lm@(ListenerMap h _) -> Hash.delete h uid >> return lm)
 
+-- | Send an OSC packet asynchronously.
 async :: OSC -> Connection -> IO ()
 async osc (Connection t _ _) = OSC.send t osc
 
-syncWith :: OSC -> (OSC -> Maybe a) -> Connection -> IO a
+-- | Send an OSC packet and wait for a notification.
+--
+-- Returns the transformed value.
+syncWith :: OSC -> Notification a -> Connection -> IO a
 syncWith s f c = do
     res <- newEmptyMVar
     uid <- addListener (action res) c
@@ -93,6 +97,8 @@ syncWith s f c = do
                 Just a  -> putMVar res a
 
 -- | Wait for an OSC message matching a specific address.
+--
+-- Returns the matched OSC message.
 syncAddress :: OSC -> String -> Connection -> IO OSC
 syncAddress s a = s `syncWith` hasAddress
     where
@@ -107,6 +113,7 @@ appendSync p i =
         (Bundle t xs)   -> Bundle t (xs ++ [s])
     where s = Message "/sync" [Int (fromIntegral i)]
 
+-- | Send an OSC packet and wait for the synchronization barrier.
 sync :: OSC -> Connection -> IO ()
 sync osc c = do
     i <- IOState.alloc State.syncId (state c)

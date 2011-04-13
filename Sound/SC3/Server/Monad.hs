@@ -40,6 +40,7 @@ import           Sound.SC3.Server.Allocator (Id, IdAllocator, RangeAllocator, Ra
 import           Sound.SC3.Server.Connection (Connection)
 import qualified Sound.SC3.Server.Connection as C
 -- import           Sound.SC3.Server.Process.Options (ServerOptions, numberOfInputBusChannels, numberOfOutputBusChannels)
+import           Sound.SC3.Server.Notification (Notification)
 import           Sound.SC3.Server.State (BufferId, BufferIdAllocator, BusId, BusIdAllocator, NodeId, NodeIdAllocator, State)
 import qualified Sound.SC3.Server.State as State
 import qualified Sound.SC3.Server.State.Concurrent as IOState
@@ -102,7 +103,7 @@ fork = liftConn . flip C.fork . runServerT
 async :: (MonadIO m) => OSC -> ServerT m ()
 async = liftConn . C.async
 
-syncWith :: (MonadIO m) => OSC -> (OSC -> Maybe a) -> ServerT m a
+syncWith :: (MonadIO m) => OSC -> Notification a -> ServerT m a
 syncWith s = liftConn . C.syncWith s
 
 syncAddress :: (MonadIO m) => OSC -> String -> ServerT m OSC
