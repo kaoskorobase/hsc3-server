@@ -10,14 +10,15 @@ module Sound.SC3.Server.Monad (
   , rootNode
   -- *Allocators
   , BufferId
+  , bufferId
   , BusId
+  , busId
   , NodeId
   , nodeId
-  , bufferId
-  , busId
   , alloc
   , allocMany
   , free
+  , Range
   , allocRange
   , freeRange
   -- *Synchronization

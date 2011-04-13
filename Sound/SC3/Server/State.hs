@@ -35,16 +35,18 @@ import           Control.Arrow (second)
 import           Control.DeepSeq (NFData(..))
 import           Control.Monad (liftM)
 import           Data.Accessor
-import           Sound.SC3.Server.Allocator (IdAllocator(..))
+import           Sound.SC3.Server.Allocator (IdAllocator(..), RangeAllocator(..))
 import qualified Sound.SC3.Server.Allocator as Alloc
-import           Sound.SC3.Server.Allocator.SetAllocator (SetAllocator)
-import qualified Sound.SC3.Server.Allocator.SetAllocator as SetAlloc
-import           Sound.SC3.Server.Allocator.SimpleAllocator (SimpleAllocator)
-import qualified Sound.SC3.Server.Allocator.SimpleAllocator as SAlloc
+import qualified Sound.SC3.Server.Allocator.BlockAllocator.FirstFit as FirstFitAllocator
+import qualified Sound.SC3.Server.Allocator.SetAllocator as SetAllocator
+import qualified Sound.SC3.Server.Allocator.SimpleAllocator as SimpleAllocator
 import           Sound.SC3.Server.Options (ServerOptions(..))
 
 allocM f = liftM (second f) . Alloc.alloc
 freeM f i = liftM f . Alloc.free i
+
+allocRangeM f n = liftM (second f) . Alloc.allocRange n
+freeRangeM f r = liftM f . Alloc.freeRange r
 
 newtype SyncId = SyncId Int deriving (Bounded, Enum, Eq, Integral, NFData, Num, Ord, Real, Show)
 data SyncIdAllocator = forall a . (IdAllocator a, NFData a, Id a ~ SyncId) => SyncIdAllocator !a
@@ -69,23 +71,31 @@ instance NFData NodeIdAllocator where
     rnf (NodeIdAllocator a) = rnf a `seq` ()
 
 newtype BufferId = BufferId Int deriving (Bounded, Enum, Eq, Integral, NFData, Num, Ord, Real, Show)
-data BufferIdAllocator = forall a . (IdAllocator a, NFData a, Id a ~ BufferId) => BufferIdAllocator !a
+data BufferIdAllocator = forall a . (RangeAllocator a, NFData a, Id a ~ BufferId) => BufferIdAllocator !a
 
 instance IdAllocator BufferIdAllocator where
     type Id BufferIdAllocator = BufferId
     alloc  (BufferIdAllocator a) = allocM BufferIdAllocator a
     free i (BufferIdAllocator a) = freeM BufferIdAllocator i a
 
+instance RangeAllocator BufferIdAllocator where
+    allocRange n (BufferIdAllocator a) = allocRangeM BufferIdAllocator n a
+    freeRange r (BufferIdAllocator a) = freeRangeM BufferIdAllocator r a
+
 instance NFData BufferIdAllocator where
     rnf (BufferIdAllocator a) = rnf a `seq` ()
 
 newtype BusId = BusId Int deriving (Bounded, Enum, Eq, Integral, NFData, Num, Ord, Real, Show)
-data BusIdAllocator = forall a . (IdAllocator a, NFData a, Id a ~ BusId) => BusIdAllocator !a
+data BusIdAllocator = forall a . (RangeAllocator a, NFData a, Id a ~ BusId) => BusIdAllocator !a
 
 instance IdAllocator BusIdAllocator where
     type Id BusIdAllocator = BusId
     alloc  (BusIdAllocator a) = allocM BusIdAllocator a
     free i (BusIdAllocator a) = freeM BusIdAllocator i a
+
+instance RangeAllocator BusIdAllocator where
+    allocRange n (BusIdAllocator a) = allocRangeM BusIdAllocator n a
+    freeRange r (BusIdAllocator a) = freeRangeM BusIdAllocator r a
 
 instance NFData BusIdAllocator where
     rnf (BusIdAllocator a) = rnf a `seq` ()
@@ -129,17 +139,18 @@ new os =
       , _audioBusId   = aid
     }
     where
-        sid = SyncIdAllocator
-                (SAlloc.cons :: SimpleAllocator SyncId)
-        nid = NodeIdAllocator
-                (SetAlloc.cons $ Alloc.range 1000 (1000 + fromIntegral (maxNumberOfNodes os)) :: SetAllocator NodeId)
-        bid = BufferIdAllocator
-                (SetAlloc.cons $ Alloc.range 0 (fromIntegral (numberOfSampleBuffers os - 1)) :: SetAllocator BufferId)
-        cid = BusIdAllocator
-                (SetAlloc.cons $ Alloc.range 0 (fromIntegral (numberOfControlBusChannels os - 1)) :: SetAllocator BusId)
-        aid = BusIdAllocator
-                (SetAlloc.cons $ Alloc.range
-                    (fromIntegral numHardwareChannels)
-                    (fromIntegral (numHardwareChannels + numberOfAudioBusChannels os)) :: SetAllocator BusId)
+        sid = SyncIdAllocator SimpleAllocator.cons
+        nid = NodeIdAllocator (SetAllocator.cons (Alloc.range 1000 (1000 + fromIntegral (maxNumberOfNodes os))))
+        bid = BufferIdAllocator (FirstFitAllocator.bestFit
+                                 FirstFitAllocator.LazyCoalescing
+                                 (Alloc.range 0 (fromIntegral (numberOfSampleBuffers os))))
+        cid = BusIdAllocator (FirstFitAllocator.bestFit
+                              FirstFitAllocator.LazyCoalescing
+                              (Alloc.range 0 (fromIntegral (numberOfControlBusChannels os))))
+        aid = BusIdAllocator (FirstFitAllocator.bestFit
+                              FirstFitAllocator.LazyCoalescing
+                              (Alloc.range
+                                (fromIntegral numHardwareChannels)
+                                (fromIntegral (numHardwareChannels + numberOfAudioBusChannels os))))
         numHardwareChannels = numberOfInputBusChannels os
                             + numberOfOutputBusChannels os

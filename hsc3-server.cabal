@@ -20,8 +20,8 @@ Extra-Source-Files:
 Library
     Exposed-Modules:
         Sound.SC3.Server.Allocator
-        Sound.SC3.Server.Allocator.BlockAllocator
         Sound.SC3.Server.Allocator.Range
+        Sound.SC3.Server.Allocator.BlockAllocator.FirstFit
         Sound.SC3.Server.Allocator.SetAllocator
         Sound.SC3.Server.Allocator.SimpleAllocator
         Sound.SC3.Server.Connection
@@ -30,6 +30,8 @@ Library
         Sound.SC3.Server.Process.Monad
         Sound.SC3.Server.State
         Sound.SC3.Server.State.Concurrent
+    Other-Modules:
+        Sound.SC3.Server.Allocator.BlockAllocator.FreeList        
     Build-Depends:
         base >= 3 && < 5
       , bitset >= 1.0
