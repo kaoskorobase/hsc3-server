@@ -6,21 +6,22 @@ module Sound.SC3.Server.Allocator.Range.Test
 
 import Sound.SC3.Server.Allocator.Range
 
+import Control.Monad (liftM)
+import System.Random (Random)
 import Test.Framework (Test, testGroup)
 import Test.Framework.Providers.QuickCheck2 (testProperty)
 import Test.QuickCheck
 
-instance (Integral i, Arbitrary i) => Arbitrary (Range i) where
+instance (Integral i, Arbitrary i, Random i) => Arbitrary (Range i) where
     arbitrary = do
-        l <- arbitrary :: Gen (NonNegative i)
-        h <- (arbitrary :: Gen (NonNegative i)) `suchThat` (>=l)
-        return $ range (fromIntegral l) (fromIntegral h)
+        l <- liftM fromIntegral (arbitrary :: Gen (NonNegative i))
+        h <- choose (l, l + 2048)
+        return $ range l h
 
 tests :: [Test]
 tests =
-    [ testGroup "properties"
+    [ testGroup "Sound.SC3.Server.Allocator.Range"
         [ testProperty "bounds" $ \(r :: Range Int) -> lowerBound r <= upperBound r
         , testProperty "split/join" $ \(n :: Int) (r :: Range Int) -> uncurry join (split n r) == r
         ]
     ]
-

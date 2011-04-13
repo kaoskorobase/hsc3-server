@@ -8,7 +8,7 @@ module Sound.SC3.Server.Allocator.SetAllocator (
 
 import Control.Failure (Failure, failure)
 import Control.DeepSeq (NFData(..))
-import Data.BitSet as Set
+import qualified Data.BitSet as Set
 import Sound.SC3.Server.Allocator
 
 data SetAllocator i =
@@ -27,28 +27,49 @@ instance NFData i => NFData (SetAllocator i) where
 cons :: Range i -> SetAllocator i
 cons r = SetAllocator r Set.empty (lowerBound r)
 
+-- | Convert an id to a bit index.
+--
+-- This is necessary to keep the BitSet size bounded between [0, numIds[.
+toBit :: Integral i => Range i -> i -> i
+toBit r i = i - lowerBound r
+
 findNext :: (Integral i) => SetAllocator i -> Maybe i
-findNext (SetAllocator r u n) = loop (succ n)
+findNext (SetAllocator r u n)
+    | fromIntegral (size r) == Set.size u = Nothing
+    | otherwise = loop n
     where
-        loop !i
-            | i == n = Nothing
-            | i == upperBound r = loop (lowerBound r)
-            | Set.member (fromIntegral i) u = loop (succ i)
-            | otherwise = Just i
+        wrap i = if i >= upperBound r
+                    then lowerBound r
+                    else i
+        loop !i = let i' = wrap (i+1)
+                  in if Set.member (toBit r i') u
+                     then loop i'
+                     else Just i'
 
-sa_alloc :: (Integral i, Failure AllocFailure m) => SetAllocator i -> m (i, SetAllocator i)
-sa_alloc s@(SetAllocator r u n)
-    | Set.member (fromIntegral n) u = failure NoFreeIds
-    | otherwise = case findNext s of
-                    Nothing -> failure NoFreeIds
-                    Just n' -> return (n, SetAllocator r (Set.insert (fromIntegral n) u) n')
+_alloc :: (Integral i, Failure AllocFailure m) => SetAllocator i -> m (i, SetAllocator i)
+_alloc a@(SetAllocator r u n) =
+    case findNext a of
+        Nothing -> failure NoFreeIds
+        Just n' -> return (n, SetAllocator r (Set.insert (toBit r n) u) n')
 
-sa_free :: (Integral i, Failure AllocFailure m) => i -> SetAllocator i -> m (SetAllocator i)
-sa_free i (SetAllocator r u n) | Set.member (fromIntegral i) u = return (SetAllocator r u' n)
-                               | otherwise = failure InvalidId
-    where u' = Set.delete (fromIntegral i) u
+_free :: (Integral i, Failure AllocFailure m) => i -> SetAllocator i -> m (SetAllocator i)
+_free i (SetAllocator r u n) =
+    if Set.member i u
+    then let u' = Set.delete (toBit r i) u
+         in return (SetAllocator r u' n)
+    else failure InvalidId
+
+_statistics :: (Integral i) => SetAllocator i -> Statistics
+_statistics (SetAllocator r u _) =
+    let k = fromIntegral (size r)
+        n = Set.size u
+    in Statistics {
+        numAvailable = k
+      , numFree = k - n
+      , numUsed = n }
 
 instance (Integral i) => IdAllocator (SetAllocator i) where
     type Id (SetAllocator i) = i
-    alloc = sa_alloc
-    free  = sa_free
+    alloc                    = _alloc
+    free                     = _free
+    statistics               = _statistics

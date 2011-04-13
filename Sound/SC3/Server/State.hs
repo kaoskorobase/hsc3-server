@@ -26,35 +26,31 @@ module Sound.SC3.Server.State (
   , rootNode
   , new
   , Alloc.alloc
-  , Alloc.allocMany
-  , Alloc.allocRange
   , Alloc.free
+  , Alloc.allocMany
+  , Alloc.freeMany
+  , Alloc.allocRange
+  , Alloc.freeRange
 ) where
 
-import           Control.Arrow (second)
 import           Control.DeepSeq (NFData(..))
-import           Control.Monad (liftM)
 import           Data.Accessor
 import           Sound.SC3.Server.Allocator (IdAllocator(..), RangeAllocator(..))
 import qualified Sound.SC3.Server.Allocator as Alloc
 import qualified Sound.SC3.Server.Allocator.BlockAllocator.FirstFit as FirstFitAllocator
 import qualified Sound.SC3.Server.Allocator.SetAllocator as SetAllocator
 import qualified Sound.SC3.Server.Allocator.SimpleAllocator as SimpleAllocator
+import qualified Sound.SC3.Server.Allocator.Wrapped as Wrapped
 import           Sound.SC3.Server.Options (ServerOptions(..))
-
-allocM f = liftM (second f) . Alloc.alloc
-freeM f i = liftM f . Alloc.free i
-
-allocRangeM f n = liftM (second f) . Alloc.allocRange n
-freeRangeM f r = liftM f . Alloc.freeRange r
 
 newtype SyncId = SyncId Int deriving (Bounded, Enum, Eq, Integral, NFData, Num, Ord, Real, Show)
 data SyncIdAllocator = forall a . (IdAllocator a, NFData a, Id a ~ SyncId) => SyncIdAllocator !a
 
 instance IdAllocator SyncIdAllocator where
     type Id SyncIdAllocator = SyncId
-    alloc  (SyncIdAllocator a) = allocM SyncIdAllocator a
-    free i (SyncIdAllocator a) = freeM SyncIdAllocator i a
+    alloc  (SyncIdAllocator a) = Wrapped.alloc SyncIdAllocator a
+    free i (SyncIdAllocator a) = Wrapped.free SyncIdAllocator i a
+    statistics (SyncIdAllocator a) = Wrapped.statistics a
 
 instance NFData SyncIdAllocator where
     rnf (SyncIdAllocator a) = rnf a `seq` ()
@@ -64,8 +60,9 @@ data NodeIdAllocator = forall a . (IdAllocator a, NFData a, Id a ~ NodeId) => No
 
 instance IdAllocator NodeIdAllocator where
     type Id NodeIdAllocator = NodeId
-    alloc  (NodeIdAllocator a) = allocM NodeIdAllocator a
-    free i (NodeIdAllocator a) = freeM NodeIdAllocator i a
+    alloc  (NodeIdAllocator a) = Wrapped.alloc NodeIdAllocator a
+    free i (NodeIdAllocator a) = Wrapped.free NodeIdAllocator i a
+    statistics (NodeIdAllocator a) = Wrapped.statistics a
 
 instance NFData NodeIdAllocator where
     rnf (NodeIdAllocator a) = rnf a `seq` ()
@@ -75,12 +72,13 @@ data BufferIdAllocator = forall a . (RangeAllocator a, NFData a, Id a ~ BufferId
 
 instance IdAllocator BufferIdAllocator where
     type Id BufferIdAllocator = BufferId
-    alloc  (BufferIdAllocator a) = allocM BufferIdAllocator a
-    free i (BufferIdAllocator a) = freeM BufferIdAllocator i a
+    alloc  (BufferIdAllocator a) = Wrapped.alloc BufferIdAllocator a
+    free i (BufferIdAllocator a) = Wrapped.free BufferIdAllocator i a
+    statistics (BufferIdAllocator a) = Wrapped.statistics a
 
 instance RangeAllocator BufferIdAllocator where
-    allocRange n (BufferIdAllocator a) = allocRangeM BufferIdAllocator n a
-    freeRange r (BufferIdAllocator a) = freeRangeM BufferIdAllocator r a
+    allocRange n (BufferIdAllocator a) = Wrapped.allocRange BufferIdAllocator n a
+    freeRange r (BufferIdAllocator a) = Wrapped.freeRange BufferIdAllocator r a
 
 instance NFData BufferIdAllocator where
     rnf (BufferIdAllocator a) = rnf a `seq` ()
@@ -90,12 +88,13 @@ data BusIdAllocator = forall a . (RangeAllocator a, NFData a, Id a ~ BusId) => B
 
 instance IdAllocator BusIdAllocator where
     type Id BusIdAllocator = BusId
-    alloc  (BusIdAllocator a) = allocM BusIdAllocator a
-    free i (BusIdAllocator a) = freeM BusIdAllocator i a
+    alloc  (BusIdAllocator a) = Wrapped.alloc BusIdAllocator a
+    free i (BusIdAllocator a) = Wrapped.free BusIdAllocator i a
+    statistics (BusIdAllocator a) = Wrapped.statistics a
 
 instance RangeAllocator BusIdAllocator where
-    allocRange n (BusIdAllocator a) = allocRangeM BusIdAllocator n a
-    freeRange r (BusIdAllocator a) = freeRangeM BusIdAllocator r a
+    allocRange n (BusIdAllocator a) = Wrapped.allocRange BusIdAllocator n a
+    freeRange r (BusIdAllocator a) = Wrapped.freeRange BusIdAllocator r a
 
 instance NFData BusIdAllocator where
     rnf (BusIdAllocator a) = rnf a `seq` ()
@@ -139,7 +138,7 @@ new os =
       , _audioBusId   = aid
     }
     where
-        sid = SyncIdAllocator SimpleAllocator.cons
+        sid = SyncIdAllocator (SimpleAllocator.cons (Alloc.range 0 (maxBound :: SyncId)))
         nid = NodeIdAllocator (SetAllocator.cons (Alloc.range 1000 (1000 + fromIntegral (maxNumberOfNodes os))))
         bid = BufferIdAllocator (FirstFitAllocator.bestFit
                                  FirstFitAllocator.LazyCoalescing

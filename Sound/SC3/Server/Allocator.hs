@@ -5,6 +5,9 @@
 
 module Sound.SC3.Server.Allocator
     ( AllocFailure(..)
+    , Statistics(..)
+    , percentFree
+    , percentUsed
     , IdAllocator(..)
     , RangeAllocator(..)
     , module Sound.SC3.Server.Allocator.Range
@@ -26,6 +29,18 @@ data AllocFailure =
 
 instance Exception AllocFailure
 
+data Statistics = Statistics {
+    numAvailable :: Int
+  , numFree :: Int
+  , numUsed :: Int
+  } deriving (Eq, Show)
+
+percentFree :: Statistics -> Double
+percentFree s = fromIntegral (numFree s) / fromIntegral (numAvailable s)
+
+percentUsed :: Statistics -> Double
+percentUsed s = fromIntegral (numUsed s) / fromIntegral (numAvailable s)
+
 -- | IdAllocator provides an interface for allocating and releasing identifiers that correspond to server resources, such as node, buffer and bus ids.
 class IdAllocator a where
     type Id a
@@ -45,8 +60,12 @@ class IdAllocator a where
                 State.put $! s'
                 return a
 
+    -- | Free a list of previously allocated identifiers.
     freeMany :: Failure AllocFailure m => [Id a] -> a -> m a
     freeMany = flip (foldM (flip free))
+
+    -- | Return usage statistics.
+    statistics :: a -> Statistics
 
 -- | RangeAllocator provides an interface for allocating and releasing ranges of consecutive identifiers.
 class IdAllocator a => RangeAllocator a where
