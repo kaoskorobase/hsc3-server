@@ -57,6 +57,9 @@ Source-Repository head
 Test-Suite hsc3-server-test
     Type: exitcode-stdio-1.0
     Main-Is: test.hs
+    Other-Modules:
+        Sound.SC3.Server.Allocator.Test
+        Sound.SC3.Server.Allocator.Range.Test
     Build-Depends:
         base
       , bitset >= 1.0
