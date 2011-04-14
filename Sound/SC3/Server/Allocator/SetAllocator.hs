@@ -34,9 +34,9 @@ toBit :: Integral i => Range i -> i -> i
 toBit r i = i - begin r
 
 findNext :: (Integral i) => SetAllocator i -> Maybe i
-findNext (SetAllocator r u n)
+findNext (SetAllocator r u i)
     | fromIntegral (size r) == Set.size u = Nothing
-    | otherwise = loop n
+    | otherwise = loop i
     where
         wrap i = if i >= end r
                     then begin r
@@ -47,14 +47,14 @@ findNext (SetAllocator r u n)
                      else Just i'
 
 _alloc :: (Integral i, Failure AllocFailure m) => SetAllocator i -> m (i, SetAllocator i)
-_alloc a@(SetAllocator r u n) =
+_alloc a@(SetAllocator r u i) =
     case findNext a of
         Nothing -> failure NoFreeIds
-        Just n' -> return (n, SetAllocator r (Set.insert (toBit r n) u) n')
+        Just i' -> return (i, SetAllocator r (Set.insert (toBit r i) u) i')
 
 _free :: (Integral i, Failure AllocFailure m) => i -> SetAllocator i -> m (SetAllocator i)
 _free i (SetAllocator r u n) =
-    if Set.member i u
+    if Set.member (toBit r i) u
     then let u' = Set.delete (toBit r i) u
          in return (SetAllocator r u' n)
     else failure InvalidId
