@@ -28,7 +28,7 @@ type SortFunc i = Range i -> Range i -> Ordering
 sortFunc :: Integral i => Sorting -> SortFunc i
 sortFunc s = f
     where f = case s of
-                Address -> comparing Range.lowerBound
+                Address -> comparing Range.begin
                 IncreasingSize -> comparing Range.size
                 DecreasingSize -> flip (comparing Range.size)
 

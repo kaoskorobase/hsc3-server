@@ -11,8 +11,10 @@ module Sound.SC3.Server.Allocator.BlockAllocator.FirstFit
   , worstFit
   ) where
 
+import           Control.Arrow (first)
 import           Control.DeepSeq (NFData(..))
 import           Control.Failure (Failure, failure)
+import           Control.Monad (liftM)
 import           Sound.SC3.Server.Allocator
 import qualified Sound.SC3.Server.Allocator.Range as Range
 import           Sound.SC3.Server.Allocator.BlockAllocator.FreeList (FreeList, Sorting(..))
@@ -80,10 +82,8 @@ _statistics a =
 
 instance (Integral i) => IdAllocator (FirstFitAllocator i) where
     type Id (FirstFitAllocator i) = i
-    alloc a = do
-        (r, a') <- _alloc 1 a
-        return (Range.lowerBound r, a')
-    free i = _free (range i (i+1))
+    alloc = liftM (first Range.begin) . _alloc 1
+    free = _free . sized 1
     statistics = _statistics
 
 instance (Integral i) => RangeAllocator (FirstFitAllocator i) where

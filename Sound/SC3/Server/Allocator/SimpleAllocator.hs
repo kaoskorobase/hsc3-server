@@ -20,12 +20,12 @@ instance NFData i => NFData (SimpleAllocator i) where
     rnf (SimpleAllocator x1 x2 x3) = rnf x1 `seq` rnf x2 `seq` rnf x3 `seq` ()
 
 cons :: Range i -> SimpleAllocator i
-cons r = SimpleAllocator r 0 (lowerBound r)
+cons r = SimpleAllocator r 0 (begin r)
 
 _alloc :: (Enum i, Ord i, Monad m) => SimpleAllocator i -> m (i, SimpleAllocator i)
 _alloc (SimpleAllocator r n i) =
     let i' = succ i
-    in return (i, SimpleAllocator r (n+1) (if i' >= upperBound r then lowerBound r else i'))
+    in return (i, SimpleAllocator r (n+1) (if i' >= end r then begin r else i'))
 
 _free :: (Failure AllocFailure m) => i -> SimpleAllocator i -> m (SimpleAllocator i)
 _free _ (SimpleAllocator r n i) =

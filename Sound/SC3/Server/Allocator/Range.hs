@@ -1,9 +1,11 @@
 module Sound.SC3.Server.Allocator.Range (
     Range
   , range
+  , sized
   , empty
-  , lowerBound
-  , upperBound
+  , begin
+  , end
+  , last
   , size
   , null
   , toList
@@ -17,10 +19,13 @@ module Sound.SC3.Server.Allocator.Range (
 ) where
 
 import Control.DeepSeq (NFData(..))
-import Prelude hiding (null)
+import Prelude hiding (last, null)
 
--- |Model intervals [a, b[
-data Range a = Range !a !a deriving (Eq, Show)
+-- | Model intervals [begin, end[
+data Range a = Range {
+    begin :: !a
+  , end :: !a
+  } deriving (Eq, Show)
 
 instance NFData a => NFData (Range a) where
     rnf (Range x1 x2) = rnf x1 `seq` rnf x2 `seq` ()
@@ -32,35 +37,35 @@ range :: Ord a => a -> a -> Range a
 range a b | a <= b    = mkRange a b
           | otherwise = mkRange b a
 
+sized :: Num a => Int -> a -> Range a
+sized n a = mkRange a (a + fromIntegral n)
+
 empty :: Num a => a -> Range a
 empty a = mkRange a a
 
-lowerBound :: Range a -> a
-lowerBound (Range a _) = a
-
-upperBound :: Range a -> a
-upperBound (Range _ a) = a
+last :: Enum a => Range a -> a
+last = pred . end
 
 size :: Integral a => Range a -> Int
-size a = fromIntegral (upperBound a - lowerBound a)
+size a = fromIntegral (end a - begin a)
 
 null :: Eq a => Range a -> Bool
-null a = lowerBound a == upperBound a
+null a = begin a == end a
 
 toList :: Enum a => Range a -> [a]
-toList a = [lowerBound a..pred (upperBound a)]
+toList a = [begin a..last a]
 
 within :: Ord a => a -> Range a -> Bool
-x `within` a = x >= lowerBound a && x < upperBound a
+x `within` a = x >= begin a && x < end a
 
 adjoins :: Eq a => Range a -> Range a -> Bool
-a `adjoins` b = (upperBound a == lowerBound b) || (upperBound b == lowerBound a)
+a `adjoins` b = (end a == begin b) || (end b == begin a)
 
 overlaps :: Ord a => Range a -> Range a -> Bool
-a `overlaps` b = (upperBound a > lowerBound b) || (upperBound b > lowerBound a)
+a `overlaps` b = (end a > begin b) || (end b > begin a)
 
 contains :: Ord a => Range a -> Range a -> Bool
-a `contains` b = lowerBound b >= lowerBound a && upperBound b <= upperBound a
+a `contains` b = begin b >= begin a && end b <= end a
 
 split :: Integral a => Int -> Range a -> (Range a, Range a)
 split n r@(Range l u)
@@ -70,4 +75,4 @@ split n r@(Range l u)
     where k = fromIntegral n
 
 join :: Ord a => Range a -> Range a -> Range a
-join a b = mkRange (min (lowerBound a) (lowerBound b)) (max (upperBound a) (upperBound b))
+join a b = mkRange (min (begin a) (begin b)) (max (end a) (end b))

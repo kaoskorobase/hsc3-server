@@ -25,21 +25,21 @@ instance NFData i => NFData (SetAllocator i) where
         rnf x3 `seq` ()
 
 cons :: Range i -> SetAllocator i
-cons r = SetAllocator r Set.empty (lowerBound r)
+cons r = SetAllocator r Set.empty (begin r)
 
 -- | Convert an id to a bit index.
 --
 -- This is necessary to keep the BitSet size bounded between [0, numIds[.
 toBit :: Integral i => Range i -> i -> i
-toBit r i = i - lowerBound r
+toBit r i = i - begin r
 
 findNext :: (Integral i) => SetAllocator i -> Maybe i
 findNext (SetAllocator r u n)
     | fromIntegral (size r) == Set.size u = Nothing
     | otherwise = loop n
     where
-        wrap i = if i >= upperBound r
-                    then lowerBound r
+        wrap i = if i >= end r
+                    then begin r
                     else i
         loop !i = let i' = wrap (i+1)
                   in if Set.member (toBit r i') u

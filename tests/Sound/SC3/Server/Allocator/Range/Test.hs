@@ -21,7 +21,7 @@ instance (Integral i, Arbitrary i, Random i) => Arbitrary (Range i) where
 tests :: [Test]
 tests =
     [ testGroup "Sound.SC3.Server.Allocator.Range"
-        [ testProperty "bounds" $ \(r :: Range Int) -> lowerBound r <= upperBound r
+        [ testProperty "bounds" $ \(r :: Range Int) -> begin r <= end r
         , testProperty "split/join" $ \(n :: Int) (r :: Range Int) -> uncurry join (split n r) == r
         ]
     ]
