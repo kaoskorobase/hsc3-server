@@ -5,7 +5,7 @@ module Sound.SC3.Server.Monad (
   , runServerT
   , Server
   , runServer
-  , lift
+  , connection
   , liftIO
   , rootNode
   -- *Allocators
@@ -33,8 +33,10 @@ module Sound.SC3.Server.Monad (
 
 import           Control.Concurrent (ThreadId)
 import           Control.Concurrent.MVar.Strict
-import           Control.Monad.Reader (MonadReader, ReaderT(..), ask, asks, lift)
-import           Control.Monad.Trans (MonadIO, MonadTrans, liftIO)
+import           Control.Monad (liftM)
+import           Control.Monad.IO.Class (MonadIO, liftIO)
+import           Control.Monad.Trans.Reader (ReaderT(..), ask, asks)
+import           Control.Monad.Trans.Class (MonadTrans)
 import           Data.Accessor
 import           Sound.SC3 (Rate(..))
 import           Sound.SC3.Server.Allocator (Id, IdAllocator, RangeAllocator, Range)
@@ -49,17 +51,23 @@ import qualified Sound.SC3.Server.State.Concurrent as IOState
 import           Sound.OpenSoundControl (OSC)
 
 newtype ServerT m a = ServerT (ReaderT Connection m a)
-    deriving (Functor, Monad, MonadReader Connection, MonadIO, MonadTrans)
+    deriving (Functor, Monad, MonadIO, MonadTrans)
 
 type Server = ServerT IO
 
 type Allocator a = Accessor State a
 
 liftConn :: MonadIO m => (Connection -> IO a) -> ServerT m a
-liftConn f = ask >>= \c -> liftIO (f c)
+liftConn f = ServerT $ ask >>= \c -> liftIO (f c)
 
 liftState :: MonadIO m => (State -> a) -> ServerT m a
-liftState f = asks C.state >>= liftIO . readMVar >>= return . f
+liftState f = ServerT $ asks C.state >>= liftIO . readMVar >>= return . f
+
+connection :: MonadIO m => ServerT m Connection
+connection = liftConn return
+
+state :: MonadIO m => ServerT m (MVar State)
+state = liftM C.state connection
 
 -- | Run a 'ServerT' computation given a connection and return the result.
 runServerT :: ServerT m a -> Connection -> m a
@@ -89,27 +97,27 @@ busId r  = error ("No bus allocator for rate " ++ show r)
 
 -- | Allocate an id using the given allocator.
 alloc :: (IdAllocator a, MonadIO m) => Allocator a -> ServerT m (Id a)
-alloc a = asks C.state >>= liftIO . IOState.alloc a
+alloc a = state >>= liftIO . IOState.alloc a
 
 -- | Free an id using the given allocator.
 free :: (IdAllocator a, MonadIO m) => Allocator a -> Id a -> ServerT m ()
-free a i = asks C.state >>= liftIO . flip (IOState.free a) i
+free a i = state >>= liftIO . flip (IOState.free a) i
 
 -- | Allocate a number of ids using the given allocator.
 allocMany :: (IdAllocator a, MonadIO m) => Allocator a -> Int -> ServerT m [Id a]
-allocMany a n = asks C.state >>= liftIO . flip (IOState.allocMany a) n
+allocMany a n = state >>= liftIO . flip (IOState.allocMany a) n
 
 -- | Free a number of ids using the given allocator.
 freeMany :: (IdAllocator a, MonadIO m) => Allocator a -> [Id a] -> ServerT m ()
-freeMany a is = asks C.state >>= liftIO . flip (IOState.freeMany a) is
+freeMany a is = state >>= liftIO . flip (IOState.freeMany a) is
 
 -- | Allocate a contiguous range of ids using the given allocator.
 allocRange :: (RangeAllocator a, MonadIO m) => Allocator a -> Int -> ServerT m (Range (Id a))
-allocRange a n = asks C.state >>= liftIO . flip (IOState.allocRange a) n
+allocRange a n = state >>= liftIO . flip (IOState.allocRange a) n
 
 -- | Free a contiguous range of ids using the given allocator.
 freeRange :: (RangeAllocator a, MonadIO m) => Allocator a -> Range (Id a) -> ServerT m ()
-freeRange a r = asks C.state >>= liftIO . flip (IOState.freeRange a) r
+freeRange a r = state >>= liftIO . flip (IOState.freeRange a) r
 
 fork :: (MonadIO m) => ServerT IO () -> ServerT m ThreadId
 fork = liftConn . flip C.fork . runServerT
