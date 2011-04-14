@@ -35,6 +35,7 @@ module Sound.SC3.Server.State (
 
 import           Control.DeepSeq (NFData(..))
 import           Data.Accessor
+import           Data.Int (Int32)
 import           Sound.SC3.Server.Allocator (IdAllocator(..), RangeAllocator(..))
 import qualified Sound.SC3.Server.Allocator as Alloc
 import qualified Sound.SC3.Server.Allocator.BlockAllocator.FirstFit as FirstFitAllocator
@@ -43,7 +44,7 @@ import qualified Sound.SC3.Server.Allocator.SimpleAllocator as SimpleAllocator
 import qualified Sound.SC3.Server.Allocator.Wrapped as Wrapped
 import           Sound.SC3.Server.Options (ServerOptions(..))
 
-newtype SyncId = SyncId Int deriving (Bounded, Enum, Eq, Integral, NFData, Num, Ord, Real, Show)
+newtype SyncId = SyncId Int32 deriving (Bounded, Enum, Eq, Integral, NFData, Num, Ord, Real, Show)
 data SyncIdAllocator = forall a . (IdAllocator a, NFData a, Id a ~ SyncId) => SyncIdAllocator !a
 
 instance IdAllocator SyncIdAllocator where
@@ -55,7 +56,7 @@ instance IdAllocator SyncIdAllocator where
 instance NFData SyncIdAllocator where
     rnf (SyncIdAllocator a) = rnf a `seq` ()
 
-newtype NodeId = NodeId Int deriving (Bounded, Enum, Eq, Integral, NFData, Num, Ord, Real, Show)
+newtype NodeId = NodeId Int32 deriving (Bounded, Enum, Eq, Integral, NFData, Num, Ord, Real, Show)
 data NodeIdAllocator = forall a . (IdAllocator a, NFData a, Id a ~ NodeId) => NodeIdAllocator !a
 
 instance IdAllocator NodeIdAllocator where
@@ -67,7 +68,7 @@ instance IdAllocator NodeIdAllocator where
 instance NFData NodeIdAllocator where
     rnf (NodeIdAllocator a) = rnf a `seq` ()
 
-newtype BufferId = BufferId Int deriving (Bounded, Enum, Eq, Integral, NFData, Num, Ord, Real, Show)
+newtype BufferId = BufferId Int32 deriving (Bounded, Enum, Eq, Integral, NFData, Num, Ord, Real, Show)
 data BufferIdAllocator = forall a . (RangeAllocator a, NFData a, Id a ~ BufferId) => BufferIdAllocator !a
 
 instance IdAllocator BufferIdAllocator where
@@ -83,7 +84,7 @@ instance RangeAllocator BufferIdAllocator where
 instance NFData BufferIdAllocator where
     rnf (BufferIdAllocator a) = rnf a `seq` ()
 
-newtype BusId = BusId Int deriving (Bounded, Enum, Eq, Integral, NFData, Num, Ord, Real, Show)
+newtype BusId = BusId Int32 deriving (Bounded, Enum, Eq, Integral, NFData, Num, Ord, Real, Show)
 data BusIdAllocator = forall a . (RangeAllocator a, NFData a, Id a ~ BusId) => BusIdAllocator !a
 
 instance IdAllocator BusIdAllocator where
