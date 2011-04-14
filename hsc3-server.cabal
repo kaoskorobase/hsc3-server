@@ -50,6 +50,8 @@ Library
         include
     Ghc-Options:
         -W
+    Ghc-Prof-Options:
+        -W -auto-all
 
 Source-Repository head
     Type:       git
