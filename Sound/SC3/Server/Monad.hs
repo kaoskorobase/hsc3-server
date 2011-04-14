@@ -16,8 +16,9 @@ module Sound.SC3.Server.Monad (
   , NodeId
   , nodeId
   , alloc
-  , allocMany
   , free
+  , allocMany
+  , freeMany
   , Range
   , allocRange
   , freeRange
@@ -60,40 +61,53 @@ liftConn f = ask >>= \c -> liftIO (f c)
 liftState :: MonadIO m => (State -> a) -> ServerT m a
 liftState f = asks C.state >>= liftIO . readMVar >>= return . f
 
+-- | Run a 'ServerT' computation given a connection and return the result.
 runServerT :: ServerT m a -> Connection -> m a
 runServerT (ServerT r) = runReaderT r
 
+-- | Run a 'Server' computation given a connection and return the result in the IO monad.
 runServer :: Server a -> Connection -> IO a
 runServer = runServerT
 
+-- | Return the root node id.
 rootNode :: MonadIO m => ServerT m NodeId
 rootNode = liftState State.rootNode
 
-
+-- | Node id allocator.
 nodeId :: Allocator NodeIdAllocator
 nodeId = State.nodeId
 
+-- | Buffer id allocator.
 bufferId :: Allocator BufferIdAllocator
 bufferId = State.bufferId
 
+-- | Bus id allocator, indexed by rate.
 busId :: Rate -> Allocator BusIdAllocator
 busId AR = State.audioBusId
 busId KR = State.controlBusId
 busId r  = error ("No bus allocator for rate " ++ show r)
 
-
+-- | Allocate an id using the given allocator.
 alloc :: (IdAllocator a, MonadIO m) => Allocator a -> ServerT m (Id a)
 alloc a = asks C.state >>= liftIO . IOState.alloc a
 
-allocMany :: (IdAllocator a, MonadIO m) => Allocator a -> Int -> ServerT m [Id a]
-allocMany a n = asks C.state >>= liftIO . flip (IOState.allocMany a) n
-
+-- | Free an id using the given allocator.
 free :: (IdAllocator a, MonadIO m) => Allocator a -> Id a -> ServerT m ()
 free a i = asks C.state >>= liftIO . flip (IOState.free a) i
 
+-- | Allocate a number of ids using the given allocator.
+allocMany :: (IdAllocator a, MonadIO m) => Allocator a -> Int -> ServerT m [Id a]
+allocMany a n = asks C.state >>= liftIO . flip (IOState.allocMany a) n
+
+-- | Free a number of ids using the given allocator.
+freeMany :: (IdAllocator a, MonadIO m) => Allocator a -> [Id a] -> ServerT m ()
+freeMany a is = asks C.state >>= liftIO . flip (IOState.freeMany a) is
+
+-- | Allocate a contiguous range of ids using the given allocator.
 allocRange :: (RangeAllocator a, MonadIO m) => Allocator a -> Int -> ServerT m (Range (Id a))
 allocRange a n = asks C.state >>= liftIO . flip (IOState.allocRange a) n
 
+-- | Free a contiguous range of ids using the given allocator.
 freeRange :: (RangeAllocator a, MonadIO m) => Allocator a -> Range (Id a) -> ServerT m ()
 freeRange a r = asks C.state >>= liftIO . flip (IOState.freeRange a) r
 

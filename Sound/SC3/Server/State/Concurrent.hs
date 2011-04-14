@@ -3,8 +3,9 @@ module Sound.SC3.Server.State.Concurrent (
     fromState
   , new
   , alloc
-  , allocMany
   , free
+  , allocMany
+  , freeMany
   , allocRange
   , freeRange
 ) where
@@ -34,13 +35,19 @@ swap (a, b) = (b, a)
 alloc :: (IdAllocator a, Failure AllocFailure IO) => (Accessor State a) -> MVar State -> IO (Id a)
 alloc f ios = modifyMVar ios (\s -> fmap (swap . second (flip (setVal f) s)) . Alloc.alloc . getVal f $ s)
 
-allocMany :: (IdAllocator a, Failure AllocFailure IO)  => (Accessor State a) -> MVar State -> Int -> IO [Id a]
-allocMany f m n = modifyMVar m (\s -> fmap (swap . second (flip (setVal f) s)) . Alloc.allocMany n . getVal f $ s)
-
 free :: IdAllocator a => (Accessor State a) -> IOState -> Id a -> IO ()
 free f ios i = modifyMVar_ ios $ \s -> do
     let a  = s ^. f
     a' <- Alloc.free i a
+    return $ f ^= a' $ s
+
+allocMany :: (IdAllocator a, Failure AllocFailure IO)  => (Accessor State a) -> MVar State -> Int -> IO [Id a]
+allocMany f m n = modifyMVar m (\s -> fmap (swap . second (flip (setVal f) s)) . Alloc.allocMany n . getVal f $ s)
+
+freeMany :: (IdAllocator a, Failure AllocFailure IO) => (Accessor State a) -> MVar State -> [Id a] -> IO ()
+freeMany f m is = modifyMVar_ m $ \s -> do
+    let a = s ^. f
+    a' <- Alloc.freeMany is a
     return $ f ^= a' $ s
 
 allocRange :: (RangeAllocator a, Failure AllocFailure IO) => (Accessor State a) -> MVar State -> Int -> IO (Range (Id a))
