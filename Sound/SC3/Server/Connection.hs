@@ -116,9 +116,9 @@ appendSync p i =
 -- | Send an OSC packet and wait for the synchronization barrier.
 sync :: OSC -> Connection -> IO ()
 sync osc c = do
-    i <- IOState.alloc State.syncId (state c)
+    i <- IOState.alloc State.syncIdAllocator (state c)
     _ <- osc `appendSync` i `syncWith` synced i $ c
-    IOState.free State.syncId (state c) i
+    IOState.free State.syncIdAllocator (state c) i
     return ()
 
 -- NOTE: This is only guaranteed to work with a transport that preserves

@@ -7,14 +7,15 @@ module Sound.SC3.Server.Monad (
   , runServer
   , connection
   , liftIO
-  , rootNode
+  , rootNodeId
   -- *Allocators
   , BufferId
-  , bufferId
+  , bufferIdAllocator
   , BusId
-  , busId
+  , audioBusIdAllocator
+  , controlBusIdAllocator
   , NodeId
-  , nodeId
+  , nodeIdAllocator
   , alloc
   , free
   , allocMany
@@ -38,17 +39,17 @@ import           Control.Monad.IO.Class (MonadIO, liftIO)
 import           Control.Monad.Trans.Reader (ReaderT(..), ask, asks)
 import           Control.Monad.Trans.Class (MonadTrans)
 import           Data.Accessor
-import           Sound.SC3 (Rate(..))
+import           Sound.OpenSoundControl (OSC)
 import           Sound.SC3.Server.Allocator (Id, IdAllocator, RangeAllocator, Range)
 import           Sound.SC3.Server.Connection (Connection)
 import qualified Sound.SC3.Server.Connection as C
--- import           Sound.SC3.Server.Process.Options (ServerOptions, numberOfInputBusChannels, numberOfOutputBusChannels)
 import           Sound.SC3.Server.Notification (Notification)
-import           Sound.SC3.Server.State (BufferId, BufferIdAllocator, BusId, BusIdAllocator, NodeId, NodeIdAllocator, State)
+import           Sound.SC3.Server.State ( BufferId, bufferIdAllocator
+                                        , BusId, audioBusIdAllocator, controlBusIdAllocator
+                                        , NodeId, nodeIdAllocator
+                                        , State)
 import qualified Sound.SC3.Server.State as State
 import qualified Sound.SC3.Server.State.Concurrent as IOState
-
-import           Sound.OpenSoundControl (OSC)
 
 newtype ServerT m a = ServerT (ReaderT Connection m a)
     deriving (Functor, Monad, MonadIO, MonadTrans)
@@ -78,22 +79,8 @@ runServer :: Server a -> Connection -> IO a
 runServer = runServerT
 
 -- | Return the root node id.
-rootNode :: MonadIO m => ServerT m NodeId
-rootNode = liftState State.rootNode
-
--- | Node id allocator.
-nodeId :: Allocator NodeIdAllocator
-nodeId = State.nodeId
-
--- | Buffer id allocator.
-bufferId :: Allocator BufferIdAllocator
-bufferId = State.bufferId
-
--- | Bus id allocator, indexed by rate.
-busId :: Rate -> Allocator BusIdAllocator
-busId AR = State.audioBusId
-busId KR = State.controlBusId
-busId r  = error ("No bus allocator for rate " ++ show r)
+rootNodeId :: MonadIO m => ServerT m NodeId
+rootNodeId = liftState State.rootNodeId
 
 -- | Allocate an id using the given allocator.
 alloc :: (IdAllocator a, MonadIO m) => Allocator a -> ServerT m (Id a)

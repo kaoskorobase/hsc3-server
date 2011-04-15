@@ -12,25 +12,19 @@ module Sound.SC3.Server.State (
   , options
   , SyncId
   , SyncIdAllocator
+  , syncIdAllocator
   , NodeId
   , NodeIdAllocator
+  , nodeIdAllocator
   , BufferId
   , BufferIdAllocator
+  , bufferIdAllocator
   , BusId
   , BusIdAllocator
-  , syncId
-  , nodeId
-  , bufferId
-  , controlBusId
-  , audioBusId
-  , rootNode
+  , controlBusIdAllocator
+  , audioBusIdAllocator
+  , rootNodeId
   , new
-  , Alloc.alloc
-  , Alloc.free
-  , Alloc.allocMany
-  , Alloc.freeMany
-  , Alloc.allocRange
-  , Alloc.freeRange
 ) where
 
 import           Control.DeepSeq (NFData(..))
@@ -101,12 +95,12 @@ instance NFData BusIdAllocator where
     rnf (BusIdAllocator a) = rnf a `seq` ()
 
 data State = State {
-    _options      :: !ServerOptions
-  , _syncId       :: !SyncIdAllocator
-  , _nodeId       :: !NodeIdAllocator
-  , _bufferId     :: !BufferIdAllocator
-  , _controlBusId :: !BusIdAllocator
-  , _audioBusId   :: !BusIdAllocator
+    _options               :: !ServerOptions
+  , _syncIdAllocator       :: !SyncIdAllocator
+  , _nodeIdAllocator       :: !NodeIdAllocator
+  , _bufferIdAllocator     :: !BufferIdAllocator
+  , _controlBusIdAllocator :: !BusIdAllocator
+  , _audioBusIdAllocator   :: !BusIdAllocator
   }
 
 instance NFData State where
@@ -118,25 +112,25 @@ instance NFData State where
         rnf x5 `seq`
         rnf x6 `seq` ()
 
-ACCESSOR(options,      _options,      State, ServerOptions)
-ACCESSOR(syncId,       _syncId,       State, SyncIdAllocator)
-ACCESSOR(nodeId,       _nodeId,       State, NodeIdAllocator)
-ACCESSOR(bufferId,     _bufferId,     State, BufferIdAllocator)
-ACCESSOR(controlBusId, _controlBusId, State, BusIdAllocator)
-ACCESSOR(audioBusId,   _audioBusId,   State, BusIdAllocator)
+ACCESSOR(options,               _options,               State, ServerOptions)
+ACCESSOR(syncIdAllocator,       _syncIdAllocator,       State, SyncIdAllocator)
+ACCESSOR(nodeIdAllocator,       _nodeIdAllocator,       State, NodeIdAllocator)
+ACCESSOR(bufferIdAllocator,     _bufferIdAllocator,     State, BufferIdAllocator)
+ACCESSOR(controlBusIdAllocator, _controlBusIdAllocator, State, BusIdAllocator)
+ACCESSOR(audioBusIdAllocator,   _audioBusIdAllocator,   State, BusIdAllocator)
 
-rootNode :: State -> NodeId
-rootNode = const (NodeId 0)
+rootNodeId :: State -> NodeId
+rootNodeId = const (NodeId 0)
 
 new :: ServerOptions -> State
 new os =
     State {
-        _options      = os
-      , _syncId       = sid
-      , _nodeId       = nid
-      , _bufferId     = bid
-      , _controlBusId = cid
-      , _audioBusId   = aid
+        _options               = os
+      , _syncIdAllocator       = sid
+      , _nodeIdAllocator       = nid
+      , _bufferIdAllocator     = bid
+      , _controlBusIdAllocator = cid
+      , _audioBusIdAllocator   = aid
     }
     where
         sid = SyncIdAllocator (SimpleAllocator.cons (Alloc.range 0 (maxBound :: SyncId)))
