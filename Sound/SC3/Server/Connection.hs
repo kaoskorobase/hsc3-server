@@ -47,6 +47,7 @@ recvLoop c@(Connection t _ _) = do
     withMVar (listeners c) (\(ListenerMap h _) -> mapM_ (\(_, l) -> l osc) =<< Hash.toList h)
     recvLoop c
 
+-- | Create a new connection given the initial server state and an OSC transport.
 new :: Transport t => State -> t -> IO Connection
 new s t = do
     ios <- IOState.fromState s
@@ -57,12 +58,19 @@ new s t = do
     initServer c
     return c
 
+-- | Close the connection.
+--
+-- The behavior of sending messages after closing the connection is undefined.
 close :: Connection -> IO ()
 close (Connection t _ _) = OSC.close t
 
+-- | Fork a new thread sharing the same connection.
 fork :: Connection -> (Connection -> IO ()) -> IO ThreadId
 fork c f = forkIO (f c)
 
+-- Add a listener.
+--
+-- Listeners are entered in a hash table, although the allocation behavior may be more stack-like.
 addListener :: Listener -> Connection -> IO ListenerId
 addListener l c = modifyMVar
                     (listeners c) $
@@ -72,6 +80,7 @@ addListener l c = modifyMVar
                         -- putStrLn $ "addListener: longestChain=" ++ show (length lc)
                         return (ListenerMap h (lid+1), lid)
 
+-- Remove a listener.
 removeListener :: ListenerId -> Connection -> IO ()
 removeListener uid c = modifyMVar_ (listeners c) (\lm@(ListenerMap h _) -> Hash.delete h uid >> return lm)
 
