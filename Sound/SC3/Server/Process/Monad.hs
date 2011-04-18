@@ -9,7 +9,6 @@ module Sound.SC3.Server.Process.Monad (
   , defaultOutputHandler
 ) where
 
-import qualified Sound.OpenSoundControl as OSC
 import qualified Sound.SC3.Server.Connection as Conn
 import qualified Sound.SC3.Server.Internal as Process
 import           Sound.SC3.Server.Monad (Server)
@@ -19,17 +18,16 @@ import           Sound.SC3.Server.Process ( OutputHandler(..), defaultOutputHand
 import qualified Sound.SC3.Server.Process as Process
 import qualified Sound.SC3.Server.State as State
 
-withSynth :: OSC.Transport t => (ServerOptions -> RTOptions -> IO t) -> ServerOptions -> RTOptions -> OutputHandler -> Server a -> IO a
-withSynth openTransport serverOptions rtOptions outputHandler action =
+withSynth :: ServerOptions -> RTOptions -> OutputHandler -> Server a -> IO a
+withSynth serverOptions rtOptions outputHandler action =
     Process.withSynth
-        openTransport
         serverOptions
         rtOptions
         outputHandler
         $ \t -> Conn.new (State.new serverOptions) t >>= Server.runServer action
 
-withDefaultSynth :: OSC.Transport t => (ServerOptions -> RTOptions -> IO t) -> Server a -> IO a
-withDefaultSynth openTransport action = withSynth openTransport defaultServerOptions defaultRTOptions defaultOutputHandler action
+withDefaultSynth :: Server a -> IO a
+withDefaultSynth = withSynth defaultServerOptions defaultRTOptions defaultOutputHandler
 
 withInternal :: ServerOptions -> RTOptions -> OutputHandler -> Server a -> IO a
 withInternal serverOptions rtOptions outputHandler action =
