@@ -8,12 +8,14 @@ module Sound.SC3.Server.Connection (
   , fork
   , async
   , syncWith
+  , syncWithAll
   , sync
   , unsafeSync
 ) where
 
 import           Control.Concurrent (ThreadId, forkIO)
 import           Control.Concurrent.MVar
+import           Control.Monad
 import qualified Data.HashTable as Hash
 import           Sound.OpenSoundControl (Datum(..), OSC(..), Transport, immediately)
 import qualified Sound.OpenSoundControl as OSC
@@ -90,6 +92,8 @@ async osc (Connection t _ _) = OSC.send t osc
 -- | Send an OSC packet and wait for a notification.
 --
 -- Returns the transformed value.
+--
+-- NOTE: There is a race condition between sending the OSC message that has an asynchronous effect and registering the listener, and that's why the OSC packet to be sent has to be passed as an argument.
 syncWith :: OSC -> Notification a -> Connection -> IO a
 syncWith s f c = do
     res <- newEmptyMVar
@@ -104,7 +108,22 @@ syncWith s f c = do
                 Nothing -> return ()
                 Just a  -> putMVar res a
 
+syncWithAll :: OSC -> [Notification a] -> Connection -> IO [a]
+syncWithAll s fs c = do
+    mv <- newMVar fs
+    res <- newEmptyMVar
+    uid <- addListener (action mv res) c 
+    s `async` c
+    as <- replicateM (length fs) (takeMVar res)
+    removeListener uid c
+    return as
     where
+        action mv res osc =
+            modifyMVar_ mv $ \fs -> filterM (filterFunc res osc) fs
+        filterFunc res osc f =
+            case f osc of
+                Nothing -> return True
+                Just a  -> putMVar res a >> return False
 
 -- | Append a @\/sync@ message to an OSC packet.
 appendSync :: OSC -> SyncId -> OSC
