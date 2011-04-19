@@ -1,6 +1,7 @@
 -- | Server notification processors.
 module Sound.SC3.Server.Notification (
     Notification
+  , hasAddress
   , Status(..)
   , status_reply
   , tr
@@ -15,6 +16,13 @@ import Sound.OpenSoundControl (OSC(..), Datum(..))
 
 -- | A notification transformer, extracting a value from a matching OSC packet.
 type Notification a = OSC -> Maybe a
+
+-- | Wait for an OSC message matching a specific address.
+--
+-- Returns the matched OSC message.
+hasAddress :: String -> Notification OSC
+hasAddress a m@(Message a' _) = if a == a' then Just m else Nothing
+hasAddress _ _                = Nothing
 
 data Status = Status {
     numUGens          :: Int

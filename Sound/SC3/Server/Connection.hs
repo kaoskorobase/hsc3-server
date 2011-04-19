@@ -8,7 +8,6 @@ module Sound.SC3.Server.Connection (
   , fork
   , async
   , syncWith
-  , syncAddress
   , sync
   , unsafeSync
 ) where
@@ -105,14 +104,7 @@ syncWith s f c = do
                 Nothing -> return ()
                 Just a  -> putMVar res a
 
--- | Wait for an OSC message matching a specific address.
---
--- Returns the matched OSC message.
-syncAddress :: OSC -> String -> Connection -> IO OSC
-syncAddress s a = s `syncWith` hasAddress
     where
-        hasAddress m@(Message a' _) = if a == a' then Just m else Nothing
-        hasAddress _                = Nothing
 
 -- | Append a @\/sync@ message to an OSC packet.
 appendSync :: OSC -> SyncId -> OSC

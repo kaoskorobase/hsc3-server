@@ -27,7 +27,6 @@ module Sound.SC3.Server.Monad (
   , fork
   , async
   , syncWith
-  , syncAddress
   , sync
   , unsafeSync
 ) where
@@ -115,8 +114,6 @@ async = liftConn . C.async
 syncWith :: (MonadIO m) => OSC -> Notification a -> ServerT m a
 syncWith s = liftConn . C.syncWith s
 
-syncAddress :: (MonadIO m) => OSC -> String -> ServerT m OSC
-syncAddress s = liftConn . C.syncAddress s
 
 sync :: (MonadIO m) => OSC -> ServerT m ()
 sync = liftConn . C.sync
