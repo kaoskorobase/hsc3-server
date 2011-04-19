@@ -9,9 +9,11 @@ module Sound.SC3.Server.Notification (
   , done
   , NodeNotification(..)
   , n_go , n_end , n_off , n_on , n_move , n_info
+  , BufferInfo(..)
+  , b_info
 ) where
 
-import Sound.SC3.Server.State (NodeId, SyncId)
+import Sound.SC3.Server.State (BufferId, NodeId, SyncId)
 import Sound.OpenSoundControl (OSC(..), Datum(..))
 
 -- | A notification transformer, extracting a value from a matching OSC packet.
@@ -88,3 +90,14 @@ n_move = n_notification "/n_move"
 
 n_info :: NodeId -> Notification NodeNotification
 n_info = n_notification "/n_info"
+
+data BufferInfo = BufferInfo {
+    numFrames :: Int
+  , numChannels :: Int
+  , sampleRate :: Double
+  } deriving (Eq, Show)
+
+b_info :: BufferId -> Notification BufferInfo
+b_info bid (Message "/b_info" [Int bid', Int f, Int c, Float r])
+    | fromIntegral bid == bid' = Just $ BufferInfo f c r
+b_info _ _ = Nothing
