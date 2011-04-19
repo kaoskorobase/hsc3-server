@@ -62,6 +62,7 @@ done _ _                                                            = Nothing
 data NodeNotification =
     SynthNotification NodeId NodeId NodeId NodeId
   | GroupNotification NodeId NodeId NodeId NodeId NodeId NodeId
+  deriving (Eq, Show)
 
 n_notification :: String -> NodeId -> Notification NodeNotification
 n_notification s nid (Message s' (Int nid':Int g:Int p:Int n:Int b:r))
