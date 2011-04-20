@@ -15,7 +15,7 @@ module Sound.SC3.Server.Connection
   , allocRange
   , freeRange
     -- * Communication and synchronisation
-  , async
+  , send
   , syncWith
   , syncWithAll
   , sync
@@ -31,7 +31,7 @@ import           Sound.OpenSoundControl (Datum(..), OSC(..), Transport, immediat
 import qualified Sound.OpenSoundControl as OSC
 
 import           Sound.SC3 (notify)
-import           Sound.SC3.Server.Notification (Notification, done, synced)
+import           Sound.SC3.Server.Notification (Notification, synced)
 import           Sound.SC3.Server.Allocator (Id, IdAllocator, Range, RangeAllocator)
 import qualified Sound.SC3.Server.Allocator as Alloc
 import           Sound.SC3.Server.State (Allocator, State, SyncId)
@@ -49,9 +49,7 @@ listeners :: Connection -> MVar ListenerMap
 listeners (Connection _ _ l) = l
 
 initServer :: Connection -> IO ()
-initServer c = do
-    Bundle immediately [notify True] `syncWith` done "notify" $ c
-    return ()
+initServer c = sync c (Bundle immediately [notify True])
 
 recvLoop :: Connection -> IO ()
 recvLoop c@(Connection t _ _) = do
@@ -112,35 +110,39 @@ freeRange c a = withAllocator_ c a . Alloc.freeRange
 -- Add a listener.
 --
 -- Listeners are entered in a hash table, although the allocation behavior may be more stack-like.
-addListener :: Listener -> Connection -> IO ListenerId
-addListener l c = modifyMVar
-                    (listeners c) $
-                    \(ListenerMap h lid) -> do
-                        Hash.insert h lid l
-                        -- lc <- Hash.longestChain h
-                        -- putStrLn $ "addListener: longestChain=" ++ show (length lc)
-                        return (ListenerMap h (lid+1), lid)
+addListener :: Connection -> Listener -> IO ListenerId
+addListener c l =
+    modifyMVar (listeners c) $
+        \(ListenerMap h lid) -> do
+            Hash.insert h lid l
+            -- lc <- Hash.longestChain h
+            -- putStrLn $ "addListener: longestChain=" ++ show (length lc)
+            return (ListenerMap h (lid+1), lid)
 
 -- Remove a listener.
-removeListener :: ListenerId -> Connection -> IO ()
-removeListener uid c = modifyMVar_ (listeners c) (\lm@(ListenerMap h _) -> Hash.delete h uid >> return lm)
+removeListener :: Connection -> ListenerId -> IO ()
+removeListener c uid =
+    modifyMVar_ (listeners c) $
+        \lm@(ListenerMap h _) -> do
+            Hash.delete h uid
+            return lm
 
 -- | Send an OSC packet asynchronously.
-async :: OSC -> Connection -> IO ()
-async osc (Connection t _ _) = OSC.send t osc
+send :: Connection -> OSC -> IO ()
+send (Connection t _ _) = OSC.send t
 
 -- | Send an OSC packet and wait for a notification.
 --
 -- Returns the transformed value.
 --
 -- NOTE: There is a race condition between sending the OSC message that has an asynchronous effect and registering the listener, and that's why the OSC packet to be sent has to be passed as an argument.
-syncWith :: OSC -> Notification a -> Connection -> IO a
-syncWith s f c = do
+syncWith :: Connection -> OSC -> Notification a -> IO a
+syncWith c s f = do
     res <- newEmptyMVar
-    uid <- addListener (action res) c
-    s `async` c
+    uid <- addListener c (action res)
+    send c s
     a <- takeMVar res
-    removeListener uid c
+    removeListener c uid
     return a
     where
         action res osc = do
@@ -148,14 +150,14 @@ syncWith s f c = do
                 Nothing -> return ()
                 Just a  -> putMVar res a
 
-syncWithAll :: OSC -> [Notification a] -> Connection -> IO [a]
-syncWithAll s fs c = do
+syncWithAll :: Connection -> OSC -> [Notification a] -> IO [a]
+syncWithAll c s fs = do
     mv <- newMVar fs
     res <- newEmptyMVar
-    uid <- addListener (action mv res) c 
-    s `async` c
+    uid <- addListener c (action mv res)
+    send c s
     as <- replicateM (length fs) (takeMVar res)
-    removeListener uid c
+    removeListener c uid
     return as
     where
         action mv res osc =
@@ -174,13 +176,13 @@ appendSync p i =
     where s = Message "/sync" [Int (fromIntegral i)]
 
 -- | Send an OSC packet and wait for the synchronization barrier.
-sync :: OSC -> Connection -> IO ()
-sync osc c = do
+sync :: Connection -> OSC -> IO ()
+sync c osc = do
     i <- alloc c State.syncIdAllocator
-    _ <- osc `appendSync` i `syncWith` synced i $ c
+    _ <- syncWith c (osc `appendSync` i) (synced i)
     free c State.syncIdAllocator i
 
 -- NOTE: This is only guaranteed to work with a transport that preserves
 -- packet order. NOTE 2: And not even then ;)
 unsafeSync :: Connection -> IO ()
-unsafeSync = sync (Bundle immediately [])
+unsafeSync c = sync c (Bundle immediately [])

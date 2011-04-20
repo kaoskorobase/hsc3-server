@@ -33,7 +33,7 @@ module Sound.SC3.Server.Monad
   , SyncId
   , SyncIdAllocator
   , syncIdAllocator
-  , async
+  , send
   , syncWith
   , syncWithAll
   , sync
@@ -119,17 +119,17 @@ freeRange a r = liftConn $ \c -> C.freeRange c a r
 fork :: (MonadIO m) => ServerT IO () -> ServerT m ThreadId
 fork a = liftConn $ \c -> forkIO (runServerT a c)
 
-async :: (MonadIO m) => OSC -> ServerT m ()
-async = liftConn . C.async
+send :: (MonadIO m) => OSC -> ServerT m ()
+send osc = liftConn $ \c -> C.send c osc
 
 syncWith :: (MonadIO m) => OSC -> Notification a -> ServerT m a
-syncWith s = liftConn . C.syncWith s
+syncWith osc n = liftConn $ \c -> C.syncWith c osc n
 
 syncWithAll :: (MonadIO m) => OSC -> [Notification a] -> ServerT m [a]
-syncWithAll s = liftConn . C.syncWithAll s
+syncWithAll osc ns = liftConn $ \c -> C.syncWithAll c osc ns
 
 sync :: (MonadIO m) => OSC -> ServerT m ()
-sync = liftConn . C.sync
+sync osc = liftConn $ \c -> C.sync c osc
 
 unsafeSync :: (MonadIO m) => ServerT m ()
 unsafeSync = liftConn C.unsafeSync
