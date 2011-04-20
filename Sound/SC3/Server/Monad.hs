@@ -40,7 +40,7 @@ module Sound.SC3.Server.Monad
   , unsafeSync
   ) where
 
-import           Control.Concurrent (ThreadId)
+import           Control.Concurrent (ThreadId, forkIO)
 import           Control.Concurrent.MVar.Strict
 import           Control.Monad.IO.Class (MonadIO, liftIO)
 import           Control.Monad.Trans.Reader (ReaderT(..), ask, asks)
@@ -115,8 +115,9 @@ allocRange a n = liftConn $ \c -> C.allocRange c a n
 freeRange :: (RangeAllocator a, MonadIO m) => Allocator a -> Range (Id a) -> ServerT m ()
 freeRange a r = liftConn $ \c -> C.freeRange c a r
 
+-- | Fork a computation in a new thread and return the thread id.
 fork :: (MonadIO m) => ServerT IO () -> ServerT m ThreadId
-fork = liftConn . flip C.fork . runServerT
+fork a = liftConn $ \c -> forkIO (runServerT a c)
 
 async :: (MonadIO m) => OSC -> ServerT m ()
 async = liftConn . C.async

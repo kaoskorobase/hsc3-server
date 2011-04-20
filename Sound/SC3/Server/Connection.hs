@@ -15,7 +15,6 @@ module Sound.SC3.Server.Connection
   , allocRange
   , freeRange
     -- * Communication and synchronisation
-  , fork
   , async
   , syncWith
   , syncWithAll
@@ -23,7 +22,7 @@ module Sound.SC3.Server.Connection
   , unsafeSync
   ) where
 
-import           Control.Concurrent (ThreadId, forkIO)
+import           Control.Concurrent (forkIO)
 import           Control.Concurrent.MVar
 import           Control.Monad
 import           Data.Accessor
@@ -109,10 +108,6 @@ freeRange c a = withAllocator_ c a . Alloc.freeRange
 
 -- ====================================================================
 -- Communication and synchronization
-
--- | Fork a new thread sharing the same connection.
-fork :: Connection -> (Connection -> IO ()) -> IO ThreadId
-fork c f = forkIO (f c)
 
 -- Add a listener.
 --
