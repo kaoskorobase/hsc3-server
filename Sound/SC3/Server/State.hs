@@ -7,9 +7,13 @@
 
 #include "Accessor.h"
 
+-- | Data type for holding server state.
+--
+-- The server state consists mainly of the allocators needed for different types of resources, such as nodes, buffers and buses.
 module Sound.SC3.Server.State (
     State
-  , options
+  , serverOptions
+  , Allocator
   , SyncId
   , SyncIdAllocator
   , syncIdAllocator
@@ -38,7 +42,13 @@ import qualified Sound.SC3.Server.Allocator.SimpleAllocator as SimpleAllocator
 import qualified Sound.SC3.Server.Allocator.Wrapped as Wrapped
 import           Sound.SC3.Server.Options (ServerOptions(..))
 
+-- | Allocator accessor.
+type Allocator a = Accessor State a
+
+-- | Synchronisation barrier id.
 newtype SyncId = SyncId Int32 deriving (Bounded, Enum, Eq, Integral, NFData, Num, Ord, Real, Show)
+
+-- | Synchronisation barrier id allocator.
 data SyncIdAllocator = forall a . (IdAllocator a, NFData a, Id a ~ SyncId) => SyncIdAllocator !a
 
 instance IdAllocator SyncIdAllocator where
@@ -50,7 +60,10 @@ instance IdAllocator SyncIdAllocator where
 instance NFData SyncIdAllocator where
     rnf (SyncIdAllocator a) = rnf a `seq` ()
 
+-- | Node id.
 newtype NodeId = NodeId Int32 deriving (Bounded, Enum, Eq, Integral, NFData, Num, Ord, Real, Show)
+
+-- | Node id allocator.
 data NodeIdAllocator = forall a . (IdAllocator a, NFData a, Id a ~ NodeId) => NodeIdAllocator !a
 
 instance IdAllocator NodeIdAllocator where
@@ -62,7 +75,10 @@ instance IdAllocator NodeIdAllocator where
 instance NFData NodeIdAllocator where
     rnf (NodeIdAllocator a) = rnf a `seq` ()
 
+-- | Buffer id.
 newtype BufferId = BufferId Int32 deriving (Bounded, Enum, Eq, Integral, NFData, Num, Ord, Real, Show)
+
+-- | Buffer id allocator.
 data BufferIdAllocator = forall a . (RangeAllocator a, NFData a, Id a ~ BufferId) => BufferIdAllocator !a
 
 instance IdAllocator BufferIdAllocator where
@@ -78,7 +94,10 @@ instance RangeAllocator BufferIdAllocator where
 instance NFData BufferIdAllocator where
     rnf (BufferIdAllocator a) = rnf a `seq` ()
 
+-- | Bus id.
 newtype BusId = BusId Int32 deriving (Bounded, Enum, Eq, Integral, NFData, Num, Ord, Real, Show)
+
+-- | Bus id allocator.
 data BusIdAllocator = forall a . (RangeAllocator a, NFData a, Id a ~ BusId) => BusIdAllocator !a
 
 instance IdAllocator BusIdAllocator where
@@ -94,8 +113,9 @@ instance RangeAllocator BusIdAllocator where
 instance NFData BusIdAllocator where
     rnf (BusIdAllocator a) = rnf a `seq` ()
 
+-- | Server state.
 data State = State {
-    _options               :: !ServerOptions
+    _serverOptions         :: !ServerOptions
   , _syncIdAllocator       :: !SyncIdAllocator
   , _nodeIdAllocator       :: !NodeIdAllocator
   , _bufferIdAllocator     :: !BufferIdAllocator
@@ -112,20 +132,28 @@ instance NFData State where
         rnf x5 `seq`
         rnf x6 `seq` ()
 
-ACCESSOR(options,               _options,               State, ServerOptions)
+-- | Server options used to create this instance.
+ACCESSOR(serverOptions,         _serverOptions,         State, ServerOptions)
+-- | Synchronisation id allocator.
 ACCESSOR(syncIdAllocator,       _syncIdAllocator,       State, SyncIdAllocator)
+-- | Node id allocator.
 ACCESSOR(nodeIdAllocator,       _nodeIdAllocator,       State, NodeIdAllocator)
+-- | Buffer id allocator.
 ACCESSOR(bufferIdAllocator,     _bufferIdAllocator,     State, BufferIdAllocator)
+-- | Control bus id allocator.
 ACCESSOR(controlBusIdAllocator, _controlBusIdAllocator, State, BusIdAllocator)
+-- | Audio bus id allocator.
 ACCESSOR(audioBusIdAllocator,   _audioBusIdAllocator,   State, BusIdAllocator)
 
+-- | Root node id.
 rootNodeId :: State -> NodeId
 rootNodeId = const (NodeId 0)
 
+-- | Create a new state with default allocators.
 new :: ServerOptions -> State
 new os =
     State {
-        _options               = os
+        _serverOptions         = os
       , _syncIdAllocator       = sid
       , _nodeIdAllocator       = nid
       , _bufferIdAllocator     = bid

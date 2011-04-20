@@ -1,20 +1,25 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-module Sound.SC3.Server.Monad (
-  -- *Server Monad
+module Sound.SC3.Server.Monad
+  ( -- * Server Monad
     ServerT
   , runServerT
   , Server
   , runServer
-  , connection
   , liftIO
+  , connection
+  , serverOptions
   , rootNodeId
-  -- *Allocators
+  -- * Allocation
+  , Allocator
   , BufferId
+  , BufferIdAllocator
   , bufferIdAllocator
   , BusId
+  , BusIdAllocator
   , audioBusIdAllocator
   , controlBusIdAllocator
   , NodeId
+  , NodeIdAllocator
   , nodeIdAllocator
   , alloc
   , free
@@ -23,18 +28,20 @@ module Sound.SC3.Server.Monad (
   , Range
   , allocRange
   , freeRange
-  -- *Synchronization
+  -- * Communication and synchronization
   , fork
+  , SyncId
+  , SyncIdAllocator
+  , syncIdAllocator
   , async
   , syncWith
   , syncWithAll
   , sync
   , unsafeSync
-) where
+  ) where
 
 import           Control.Concurrent (ThreadId)
 import           Control.Concurrent.MVar.Strict
-import           Control.Monad (liftM)
 import           Control.Monad.IO.Class (MonadIO, liftIO)
 import           Control.Monad.Trans.Reader (ReaderT(..), ask, asks)
 import           Control.Monad.Trans.Class (MonadTrans)
@@ -44,31 +51,25 @@ import           Sound.SC3.Server.Allocator (Id, IdAllocator, RangeAllocator, Ra
 import           Sound.SC3.Server.Connection (Connection)
 import qualified Sound.SC3.Server.Connection as C
 import           Sound.SC3.Server.Notification (Notification)
-import           Sound.SC3.Server.State ( BufferId, bufferIdAllocator
-                                        , BusId, audioBusIdAllocator, controlBusIdAllocator
-                                        , NodeId, nodeIdAllocator
+import           Sound.SC3.Server.Options (ServerOptions)
+import           Sound.SC3.Server.State ( Allocator
+                                        , BufferId, BufferIdAllocator, bufferIdAllocator
+                                        , BusId, BusIdAllocator, audioBusIdAllocator, controlBusIdAllocator
+                                        , NodeId, NodeIdAllocator, nodeIdAllocator
+                                        , SyncId, SyncIdAllocator, syncIdAllocator
                                         , State)
 import qualified Sound.SC3.Server.State as State
-import qualified Sound.SC3.Server.State.Concurrent as IOState
 
 newtype ServerT m a = ServerT (ReaderT Connection m a)
     deriving (Functor, Monad, MonadIO, MonadTrans)
 
 type Server = ServerT IO
 
-type Allocator a = Accessor State a
-
 liftConn :: MonadIO m => (Connection -> IO a) -> ServerT m a
 liftConn f = ServerT $ ask >>= \c -> liftIO (f c)
 
 liftState :: MonadIO m => (State -> a) -> ServerT m a
 liftState f = ServerT $ asks C.state >>= liftIO . readMVar >>= return . f
-
-connection :: MonadIO m => ServerT m Connection
-connection = liftConn return
-
-state :: MonadIO m => ServerT m (MVar State)
-state = liftM C.state connection
 
 -- | Run a 'ServerT' computation given a connection and return the result.
 runServerT :: ServerT m a -> Connection -> m a
@@ -78,33 +79,41 @@ runServerT (ServerT r) = runReaderT r
 runServer :: Server a -> Connection -> IO a
 runServer = runServerT
 
+-- | Return the connection.
+connection :: MonadIO m => ServerT m Connection
+connection = liftConn return
+
+-- | Return the server options.
+serverOptions :: MonadIO m => ServerT m ServerOptions
+serverOptions = liftState (getVal State.serverOptions)
+
 -- | Return the root node id.
 rootNodeId :: MonadIO m => ServerT m NodeId
 rootNodeId = liftState State.rootNodeId
 
 -- | Allocate an id using the given allocator.
 alloc :: (IdAllocator a, MonadIO m) => Allocator a -> ServerT m (Id a)
-alloc a = state >>= liftIO . IOState.alloc a
+alloc a = liftConn $ \c -> C.alloc c a
 
 -- | Free an id using the given allocator.
 free :: (IdAllocator a, MonadIO m) => Allocator a -> Id a -> ServerT m ()
-free a i = state >>= liftIO . flip (IOState.free a) i
+free a i = liftConn $ \c -> C.free c a i
 
 -- | Allocate a number of ids using the given allocator.
 allocMany :: (IdAllocator a, MonadIO m) => Allocator a -> Int -> ServerT m [Id a]
-allocMany a n = state >>= liftIO . flip (IOState.allocMany a) n
+allocMany a n = liftConn $ \c -> C.allocMany c a n
 
 -- | Free a number of ids using the given allocator.
 freeMany :: (IdAllocator a, MonadIO m) => Allocator a -> [Id a] -> ServerT m ()
-freeMany a is = state >>= liftIO . flip (IOState.freeMany a) is
+freeMany a is = liftConn $ \c -> C.freeMany c a is
 
 -- | Allocate a contiguous range of ids using the given allocator.
 allocRange :: (RangeAllocator a, MonadIO m) => Allocator a -> Int -> ServerT m (Range (Id a))
-allocRange a n = state >>= liftIO . flip (IOState.allocRange a) n
+allocRange a n = liftConn $ \c -> C.allocRange c a n
 
 -- | Free a contiguous range of ids using the given allocator.
 freeRange :: (RangeAllocator a, MonadIO m) => Allocator a -> Range (Id a) -> ServerT m ()
-freeRange a r = state >>= liftIO . flip (IOState.freeRange a) r
+freeRange a r = liftConn $ \c -> C.freeRange c a r
 
 fork :: (MonadIO m) => ServerT IO () -> ServerT m ThreadId
 fork = liftConn . flip C.fork . runServerT
