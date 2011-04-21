@@ -35,7 +35,9 @@ module Sound.SC3.Server.Monad
   , syncIdAllocator
   , send
   , waitFor
+  , waitFor_
   , waitForAll
+  , waitForAll_
   , sync
   , unsafeSync
   ) where
@@ -125,8 +127,14 @@ send osc = liftConn $ \c -> C.send c osc
 waitFor :: (MonadIO m) => OSC -> Notification a -> ServerT m a
 waitFor osc n = liftConn $ \c -> C.waitFor c osc n
 
+waitFor_ :: (MonadIO m) => OSC -> Notification a -> ServerT m ()
+waitFor_ osc n = liftConn $ \c -> C.waitFor_ c osc n
+
 waitForAll :: (MonadIO m) => OSC -> [Notification a] -> ServerT m [a]
 waitForAll osc ns = liftConn $ \c -> C.waitForAll c osc ns
+
+waitForAll_ :: (MonadIO m) => OSC -> [Notification a] -> ServerT m ()
+waitForAll_ osc ns = liftConn $ \c -> C.waitForAll_ c osc ns
 
 sync :: (MonadIO m) => OSC -> ServerT m ()
 sync osc = liftConn $ \c -> C.sync c osc

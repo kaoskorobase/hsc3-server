@@ -17,7 +17,9 @@ module Sound.SC3.Server.Connection
     -- * Communication and synchronisation
   , send
   , waitFor
+  , waitFor_
   , waitForAll
+  , waitForAll_
   , sync
   , unsafeSync
   ) where
@@ -25,7 +27,7 @@ module Sound.SC3.Server.Connection
 import           Control.Concurrent (forkIO)
 import           Control.Concurrent.MVar
 import           Control.Concurrent.Chan
-import           Control.Monad
+import           Control.Monad (liftM, replicateM, void)
 import           Data.Accessor
 import qualified Data.HashTable as Hash
 import           Sound.OpenSoundControl (Datum(..), OSC(..), Transport, immediately)
@@ -151,6 +153,12 @@ waitFor c osc n = do
     removeListener c uid
     return a
 
+-- | Send an OSC packet and wait for a notification.
+--
+-- Ignores the transformed value.
+waitFor_ :: Connection -> OSC -> Notification a -> IO ()
+waitFor_ c osc n = void $ waitFor c osc n
+
 -- | Send an OSC packet and wait for a list of notifications.
 --
 -- Returns the transformed values, in unspecified order.
@@ -162,6 +170,12 @@ waitForAll c osc ns = do
     as <- replicateM (length ns) (readChan res)
     mapM_ (removeListener c) uids
     return as
+
+-- | Send an OSC packet and wait for a list of notifications.
+--
+-- Ignores the transformed values.
+waitForAll_ :: Connection -> OSC -> [Notification a] -> IO ()
+waitForAll_ c osc ns = void $ waitForAll c osc ns
 
 -- | Append a @\/sync@ message to an OSC packet.
 appendSync :: OSC -> SyncId -> OSC
@@ -175,7 +189,7 @@ appendSync p i =
 sync :: Connection -> OSC -> IO ()
 sync c osc = do
     i <- alloc c State.syncIdAllocator
-    _ <- waitFor c (osc `appendSync` i) (synced i)
+    waitFor_ c (osc `appendSync` i) (synced i)
     free c State.syncIdAllocator i
 
 -- NOTE: This is only guaranteed to work with a transport that preserves
