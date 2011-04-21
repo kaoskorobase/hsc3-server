@@ -16,8 +16,8 @@ module Sound.SC3.Server.Connection
   , freeRange
     -- * Communication and synchronisation
   , send
-  , syncWith
-  , syncWithAll
+  , waitFor
+  , waitForAll
   , sync
   , unsafeSync
   ) where
@@ -142,8 +142,8 @@ send (Connection t _ _) = OSC.send t
 -- | Send an OSC packet and wait for a notification.
 --
 -- Returns the transformed value.
-syncWith :: Connection -> OSC -> Notification a -> IO a
-syncWith c osc n = do
+waitFor :: Connection -> OSC -> Notification a -> IO a
+waitFor c osc n = do
     res <- newEmptyMVar
     uid <- addListener c (mkListener (putMVar res) n)
     send c osc
@@ -154,8 +154,8 @@ syncWith c osc n = do
 -- | Send an OSC packet and wait for a list of notifications.
 --
 -- Returns the transformed values, in unspecified order.
-syncWithAll :: Connection -> OSC -> [Notification a] -> IO [a]
-syncWithAll c osc ns = do
+waitForAll :: Connection -> OSC -> [Notification a] -> IO [a]
+waitForAll c osc ns = do
     res <- newChan
     uids <- mapM (addListener c . mkListener (writeChan res)) ns
     send c osc
@@ -175,7 +175,7 @@ appendSync p i =
 sync :: Connection -> OSC -> IO ()
 sync c osc = do
     i <- alloc c State.syncIdAllocator
-    _ <- syncWith c (osc `appendSync` i) (synced i)
+    _ <- waitFor c (osc `appendSync` i) (synced i)
     free c State.syncIdAllocator i
 
 -- NOTE: This is only guaranteed to work with a transport that preserves
