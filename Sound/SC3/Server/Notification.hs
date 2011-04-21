@@ -1,6 +1,6 @@
 -- | Server notification processors.
 module Sound.SC3.Server.Notification (
-    Notification
+    Notification(..)
   , hasAddress
   , Status(..)
   , status_reply
@@ -17,14 +17,19 @@ import Sound.SC3.Server.State (BufferId, NodeId, SyncId)
 import Sound.OpenSoundControl (OSC(..), Datum(..))
 
 -- | A notification transformer, extracting a value from a matching OSC packet.
-type Notification a = OSC -> Maybe a
+newtype Notification a = Notification { match :: OSC -> Maybe a }
+
+instance Functor Notification where
+    fmap f = Notification . (.) (fmap f) . match
 
 -- | Wait for an OSC message matching a specific address.
 --
 -- Returns the matched OSC message.
 hasAddress :: String -> Notification OSC
-hasAddress a m@(Message a' _) = if a == a' then Just m else Nothing
-hasAddress _ _                = Nothing
+hasAddress a = Notification f
+    where
+        f m@(Message a' _) = if a == a' then Just m else Nothing
+        f _                = Nothing
 
 data Status = Status {
     numUGens          :: Int
@@ -38,26 +43,36 @@ data Status = Status {
 } deriving (Eq, Show)
 
 status_reply :: Notification Status
-status_reply (Message "/status.reply" [Int _, Int u, Int s, Int g, Int d, Float a, Float p, Double sr, Double sr']) =
-    Just $ Status u s g d a p sr sr'
-status_reply _ = Nothing
+status_reply = Notification f
+    where
+        f (Message "/status.reply" [Int _, Int u, Int s, Int g, Int d, Float a, Float p, Double sr, Double sr'])
+            = Just $ Status u s g d a p sr sr'
+        f _ = Nothing
 
 tr :: NodeId -> Maybe Int -> Notification Double
-tr n (Just i) (Message "/tr" [Int n', Int i', Float r]) | fromIntegral n == n' && i == i' = Just r
-tr n Nothing  (Message "/tr" [Int n', Int _, Float r])  | fromIntegral n == n' = Just r
-tr _ _        _                                         = Nothing
+tr n = Notification . f
+    where
+        f (Just i) (Message "/tr" [Int n', Int i', Float r])
+            | fromIntegral n == n' && i == i' = Just r
+        f Nothing  (Message "/tr" [Int n', Int _, Float r])
+            | fromIntegral n == n' = Just r
+        f _ _ = Nothing
 
 synced :: SyncId -> Notification SyncId
-synced i (Message "/synced" [Int j]) | fromIntegral j == i = Just i
-synced _ _                                                 = Nothing
+synced i = Notification f
+    where
+        f (Message "/synced" [Int j]) | fromIntegral j == i = Just i
+        f _                                                 = Nothing
 
 normalize :: String -> String
 normalize ('/':s) = s
 normalize s       = s
 
 done :: String -> Notification [Datum]
-done c (Message "/done" (String s:xs)) | normalize c == normalize s = Just xs
-done _ _                                                            = Nothing
+done c = Notification f
+    where
+        f (Message "/done" (String s:xs)) | normalize c == normalize s = Just xs
+        f _                                                            = Nothing
 
 data NodeNotification =
     SynthNotification NodeId NodeId NodeId NodeId
@@ -65,14 +80,16 @@ data NodeNotification =
   deriving (Eq, Show)
 
 n_notification :: String -> NodeId -> Notification NodeNotification
-n_notification s nid (Message s' (Int nid':Int g:Int p:Int n:Int b:r))
-    | s == s' && fromIntegral nid == nid' =
-        case b of
-            0 -> Just $ SynthNotification nid (fromIntegral g) (fromIntegral p) (fromIntegral n)
-            _ -> case r of
-                    [Int h, Int t] -> Just $ GroupNotification nid (fromIntegral g) (fromIntegral p) (fromIntegral n) (fromIntegral h) (fromIntegral t)
-                    _              -> Just $ GroupNotification nid (fromIntegral g) (fromIntegral p) (fromIntegral n) (fromIntegral (-1 :: Int)) (fromIntegral (-1 :: Int))
-n_notification _ _ _ = Nothing
+n_notification s nid = Notification f
+    where
+        f (Message s' (Int nid':Int g:Int p:Int n:Int b:r))
+            | s == s' && fromIntegral nid == nid' =
+                case b of
+                    0 -> Just $ SynthNotification nid (fromIntegral g) (fromIntegral p) (fromIntegral n)
+                    _ -> case r of
+                        [Int h, Int t] -> Just $ GroupNotification nid (fromIntegral g) (fromIntegral p) (fromIntegral n) (fromIntegral h) (fromIntegral t)
+                        _              -> Just $ GroupNotification nid (fromIntegral g) (fromIntegral p) (fromIntegral n) (fromIntegral (-1 :: Int)) (fromIntegral (-1 :: Int))
+        f _ = Nothing
 
 n_go :: NodeId -> Notification NodeNotification
 n_go = n_notification "/n_go"
@@ -99,6 +116,8 @@ data BufferInfo = BufferInfo {
   } deriving (Eq, Show)
 
 b_info :: BufferId -> Notification BufferInfo
-b_info bid (Message "/b_info" [Int bid', Int f, Int c, Float r])
-    | fromIntegral bid == bid' = Just $ BufferInfo f c r
-b_info _ _ = Nothing
+b_info bid = Notification f
+    where
+        f (Message "/b_info" [Int bid', Int f, Int c, Float r])
+            | fromIntegral bid == bid' = Just $ BufferInfo f c r
+        f _ = Nothing

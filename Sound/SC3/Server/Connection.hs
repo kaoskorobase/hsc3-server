@@ -24,6 +24,7 @@ module Sound.SC3.Server.Connection
 
 import           Control.Concurrent (forkIO)
 import           Control.Concurrent.MVar
+import           Control.Concurrent.Chan
 import           Control.Monad
 import           Data.Accessor
 import qualified Data.HashTable as Hash
@@ -31,7 +32,7 @@ import           Sound.OpenSoundControl (Datum(..), OSC(..), Transport, immediat
 import qualified Sound.OpenSoundControl as OSC
 
 import           Sound.SC3 (notify)
-import           Sound.SC3.Server.Notification (Notification, synced)
+import           Sound.SC3.Server.Notification (Notification(..), synced)
 import           Sound.SC3.Server.Allocator (Id, IdAllocator, Range, RangeAllocator)
 import qualified Sound.SC3.Server.Allocator as Alloc
 import           Sound.SC3.Server.State (Allocator, State, SyncId)
@@ -107,7 +108,14 @@ freeRange c a = withAllocator_ c a . Alloc.freeRange
 -- ====================================================================
 -- Communication and synchronization
 
--- Add a listener.
+-- | Create a listener from an IO action and a notification.
+mkListener :: (a -> IO ()) -> Notification a -> Listener
+mkListener f n osc =
+    case n `match` osc of
+        Nothing -> return ()
+        Just a  -> f a
+
+-- | Add a listener.
 --
 -- Listeners are entered in a hash table, although the allocation behavior may be more stack-like.
 addListener :: Connection -> Listener -> IO ListenerId
@@ -119,7 +127,7 @@ addListener c l =
             -- putStrLn $ "addListener: longestChain=" ++ show (length lc)
             return (ListenerMap h (lid+1), lid)
 
--- Remove a listener.
+-- | Remove a listener.
 removeListener :: Connection -> ListenerId -> IO ()
 removeListener c uid =
     modifyMVar_ (listeners c) $
@@ -134,38 +142,26 @@ send (Connection t _ _) = OSC.send t
 -- | Send an OSC packet and wait for a notification.
 --
 -- Returns the transformed value.
---
--- NOTE: There is a race condition between sending the OSC message that has an asynchronous effect and registering the listener, and that's why the OSC packet to be sent has to be passed as an argument.
 syncWith :: Connection -> OSC -> Notification a -> IO a
-syncWith c s f = do
+syncWith c osc n = do
     res <- newEmptyMVar
-    uid <- addListener c (action res)
-    send c s
+    uid <- addListener c (mkListener (putMVar res) n)
+    send c osc
     a <- takeMVar res
     removeListener c uid
     return a
-    where
-        action res osc = do
-            case f osc of
-                Nothing -> return ()
-                Just a  -> putMVar res a
 
+-- | Send an OSC packet and wait for a list of notifications.
+--
+-- Returns the transformed values, in unspecified order.
 syncWithAll :: Connection -> OSC -> [Notification a] -> IO [a]
-syncWithAll c s fs = do
-    mv <- newMVar fs
-    res <- newEmptyMVar
-    uid <- addListener c (action mv res)
-    send c s
-    as <- replicateM (length fs) (takeMVar res)
-    removeListener c uid
+syncWithAll c osc ns = do
+    res <- newChan
+    uids <- mapM (addListener c . mkListener (writeChan res)) ns
+    send c osc
+    as <- replicateM (length ns) (readChan res)
+    mapM_ (removeListener c) uids
     return as
-    where
-        action mv res osc =
-            modifyMVar_ mv $ \fs -> filterM (filterFunc res osc) fs
-        filterFunc res osc f =
-            case f osc of
-                Nothing -> return True
-                Just a  -> putMVar res a >> return False
 
 -- | Append a @\/sync@ message to an OSC packet.
 appendSync :: OSC -> SyncId -> OSC
