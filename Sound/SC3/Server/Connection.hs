@@ -163,6 +163,8 @@ waitFor_ c osc n = void $ waitFor c osc n
 --
 -- Returns the transformed values, in unspecified order.
 waitForAll :: Connection -> OSC -> [Notification a] -> IO [a]
+waitForAll c osc [] =
+    send c osc >> return []
 waitForAll c osc ns = do
     res <- newChan
     uids <- mapM (addListener c . mkListener (writeChan res)) ns
