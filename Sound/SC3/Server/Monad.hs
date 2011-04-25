@@ -28,8 +28,9 @@ module Sound.SC3.Server.Monad
   , Range
   , allocRange
   , freeRange
-  -- * Communication and synchronization
+  -- * Concurrency
   , fork
+  -- * Communication and synchronization
   , SyncId
   , SyncIdAllocator
   , syncIdAllocator
