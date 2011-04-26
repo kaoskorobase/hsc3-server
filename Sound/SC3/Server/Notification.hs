@@ -9,6 +9,7 @@ module Sound.SC3.Server.Notification (
   , done
   , NodeNotification(..)
   , n_go , n_end , n_off , n_on , n_move , n_info
+  , n_go_, n_end_, n_off_, n_on_
   , BufferInfo(..)
   , b_info
 ) where
@@ -108,6 +109,25 @@ n_move = n_notification "/n_move"
 
 n_info :: NodeId -> Notification NodeNotification
 n_info = n_notification "/n_info"
+
+n_notification_ :: String -> NodeId -> Notification ()
+n_notification_ s nid = Notification f
+    where
+        f (Message s' (Int nid':_))
+            | s == s' && fromIntegral nid == nid' = Just ()
+        f _ = Nothing
+
+n_go_ :: NodeId -> Notification ()
+n_go_ = n_notification_ "/n_go"
+
+n_end_ :: NodeId -> Notification ()
+n_end_ = n_notification_ "/n_end"
+
+n_off_ :: NodeId -> Notification ()
+n_off_ = n_notification_ "/n_off"
+
+n_on_ :: NodeId -> Notification ()
+n_on_ = n_notification_ "/n_on"
 
 data BufferInfo = BufferInfo {
     numFrames :: Int
