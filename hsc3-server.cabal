@@ -26,6 +26,9 @@ Library
         Sound.SC3.Server.Allocator.SimpleAllocator
         Sound.SC3.Server.Allocator.Wrapped
         Sound.SC3.Server.Connection
+        Sound.SC3.Server.Connection.ListenerMap
+        Sound.SC3.Server.Connection.ListenerMap.HashTable
+        Sound.SC3.Server.Connection.ListenerMap.List
         Sound.SC3.Server.Monad
         Sound.SC3.Server.Notification
         Sound.SC3.Server.Process.Monad

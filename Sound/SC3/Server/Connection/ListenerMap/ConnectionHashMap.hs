@@ -29,17 +29,21 @@ import           Control.Concurrent.MVar
 import           Control.Concurrent.Chan
 import           Control.Monad (liftM, replicateM, void)
 import           Data.Accessor
+import qualified Data.HashMap.Strict as HashMap
+import qualified Data.Foldable as HashMap
 import           Sound.OpenSoundControl (Datum(..), OSC(..), Transport, immediately)
 import qualified Sound.OpenSoundControl as OSC
+
 import           Sound.SC3 (notify)
 import           Sound.SC3.Server.Notification (Notification(..), synced)
 import           Sound.SC3.Server.Allocator (Id, IdAllocator, Range, RangeAllocator)
 import qualified Sound.SC3.Server.Allocator as Alloc
-import           Sound.SC3.Server.Connection.ListenerMap (Listener, ListenerId, ListenerMap)
-import qualified Sound.SC3.Server.Connection.ListenerMap as ListenerMap
 import           Sound.SC3.Server.State (Allocator, State, SyncId)
 import qualified Sound.SC3.Server.State as State
 
+type ListenerId  = Int
+type Listener    = OSC -> IO ()
+data ListenerMap = ListenerMap (HashMap.HashMap ListenerId Listener) !ListenerId
 data Connection  = forall t . Transport t => Connection t (MVar State) (MVar ListenerMap)
 
 state :: Connection -> MVar State
@@ -54,14 +58,14 @@ initServer c = sync c (Bundle immediately [notify True])
 recvLoop :: Connection -> IO ()
 recvLoop c@(Connection t _ _) = do
     osc <- OSC.recv t
-    withMVar (listeners c) (ListenerMap.broadcast osc)
+    withMVar (listeners c) (\(ListenerMap m _) -> HashMap.mapM_ ($osc) m)
     recvLoop c
 
 -- | Create a new connection given the initial server state and an OSC transport.
 new :: Transport t => State -> t -> IO Connection
 new s t = do
     ios <- newMVar s
-    lm <- newMVar =<< ListenerMap.empty
+    lm <- newMVar (ListenerMap HashMap.empty 0)
     let c = Connection t ios lm
     _ <- forkIO $ recvLoop c
     initServer c
@@ -117,13 +121,21 @@ mkListener f n osc =
 --
 -- Listeners are entered in a hash table, although the allocation behavior may be more stack-like.
 addListener :: Connection -> Listener -> IO ListenerId
-addListener c l = modifyMVar (listeners c) $ \lm -> do
-    (uid, lm') <- ListenerMap.add l lm
-    return (lm', uid)
+addListener c l =
+    modifyMVar (listeners c) $
+        \(ListenerMap m i) -> do
+            -- Hash.insert h lid l
+            -- lc <- Hash.longestChain h
+            -- putStrLn $ "addListener: longestChain=" ++ show (length lc)
+            return (ListenerMap (HashMap.insert i l m) (i+1), i)
 
 -- | Remove a listener.
 removeListener :: Connection -> ListenerId -> IO ()
-removeListener c uid = modifyMVar_ (listeners c) (ListenerMap.delete uid)
+removeListener c uid =
+    modifyMVar_ (listeners c) $
+        \(ListenerMap m i) -> do
+            -- Hash.delete h uid
+            return (ListenerMap  (HashMap.delete uid m) i)
 
 -- | Send an OSC packet asynchronously.
 send :: Connection -> OSC -> IO ()
