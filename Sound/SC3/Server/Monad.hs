@@ -43,6 +43,7 @@ module Sound.SC3.Server.Monad
   , unsafeSync
   ) where
 
+import           Control.Applicative
 import           Control.Concurrent (ThreadId, forkIO)
 import           Control.Concurrent.MVar.Strict
 import           Control.Monad.IO.Class (MonadIO, liftIO)
@@ -64,7 +65,7 @@ import           Sound.SC3.Server.State ( Allocator
 import qualified Sound.SC3.Server.State as State
 
 newtype ServerT m a = ServerT (ReaderT Connection m a)
-    deriving (Functor, Monad, MonadIO, MonadTrans)
+    deriving (Applicative, Functor, Monad, MonadIO, MonadTrans)
 
 type Server = ServerT IO
 
