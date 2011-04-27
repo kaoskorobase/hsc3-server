@@ -7,7 +7,8 @@ module Sound.SC3.Server.Notification (
   , tr
   , synced
   , done
-  , NodeNotification(..)
+  , NodeNotification(nodeId, parentGroupId, previousNodeId, nextNodeId)
+  , headNodeId, tailNodeId
   , n_go , n_end , n_off , n_on , n_move , n_info
   , n_go_, n_end_, n_off_, n_on_
   , BufferInfo(..)
@@ -76,21 +77,56 @@ done c = Notification f
         f _                                                            = Nothing
 
 data NodeNotification =
-    SynthNotification NodeId NodeId NodeId NodeId
-  | GroupNotification NodeId NodeId NodeId NodeId NodeId NodeId
+    SynthNotification {
+        nodeId :: NodeId
+      , parentGroupId :: NodeId
+      , previousNodeId :: Maybe NodeId
+      , nextNodeId :: Maybe NodeId
+      }
+  | GroupNotification {
+        nodeId :: NodeId
+      , parentGroupId :: NodeId
+      , previousNodeId :: Maybe NodeId
+      , nextNodeId :: Maybe NodeId
+      , _headNodeId :: Maybe NodeId
+      , _tailNodeId :: Maybe NodeId
+      }
   deriving (Eq, Show)
+
+isSynthNotification :: NodeNotification -> Bool
+isSynthNotification (SynthNotification _ _ _ _) = True
+isSynthNotification _ = False
+
+headNodeId :: NodeNotification -> Maybe NodeId
+headNodeId n | isSynthNotification n = Nothing
+             | otherwise             = _headNodeId n
+
+tailNodeId :: NodeNotification -> Maybe NodeId
+tailNodeId n | isSynthNotification n = Nothing
+             | otherwise             = _tailNodeId n
 
 n_notification :: String -> NodeId -> Notification NodeNotification
 n_notification s nid = Notification f
     where
-        f (Message s' (Int nid':Int g:Int p:Int n:Int b:r))
-            | s == s' && fromIntegral nid == nid' =
-                case b of
-                    0 -> Just $ SynthNotification nid (fromIntegral g) (fromIntegral p) (fromIntegral n)
-                    _ -> case r of
-                        [Int h, Int t] -> Just $ GroupNotification nid (fromIntegral g) (fromIntegral p) (fromIntegral n) (fromIntegral h) (fromIntegral t)
-                        _              -> Just $ GroupNotification nid (fromIntegral g) (fromIntegral p) (fromIntegral n) (fromIntegral (-1 :: Int)) (fromIntegral (-1 :: Int))
-        f _ = Nothing
+        nodeIdToMaybe (-1) = Nothing
+        nodeIdToMaybe i    = Just (fromIntegral i)
+        f osc =
+            case osc of
+                (Message s' (Int nid':xs)) ->
+                    if s == s' && fromIntegral nid == nid'
+                    then case xs of
+                            (Int g:Int p:Int n:Int b:rest) ->
+                                let group = fromIntegral g
+                                    prev = nodeIdToMaybe p
+                                    next = nodeIdToMaybe n
+                                in case b of
+                                    1 -> case rest of
+                                        [Int h, Int t] -> Just $ GroupNotification nid group prev next (nodeIdToMaybe h) (nodeIdToMaybe t)
+                                        _              -> Nothing
+                                    _ -> Just $ SynthNotification nid group prev next
+                            _ -> Nothing
+                    else Nothing
+                _ -> Nothing
 
 n_go :: NodeId -> Notification NodeNotification
 n_go = n_notification "/n_go"
