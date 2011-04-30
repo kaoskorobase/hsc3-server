@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleContexts
-           , GeneralizedNewtypeDeriving #-}
+           , GeneralizedNewtypeDeriving
+           , MultiParamTypeClasses #-}
 module Sound.SC3.Server.Monad
   ( -- * Server Monad
     ServerT
@@ -8,7 +9,9 @@ module Sound.SC3.Server.Monad
   , runServer
   , liftIO
   , connection
-  , serverOptions
+  -- * Server options
+  , MonadServer(..)
+  , serverOption
   -- * Allocation
   , Allocator
   , BufferId
@@ -38,7 +41,8 @@ module Sound.SC3.Server.Monad
 import           Control.Applicative
 import           Control.Concurrent (ThreadId, forkIO)
 import           Control.Concurrent.MVar.Strict
-import           Control.Failure (Failure)
+import           Control.Failure (Failure(..))
+import           Control.Monad (liftM)
 import           Control.Monad.IO.Class (MonadIO, liftIO)
 import           Control.Monad.Trans.Reader (ReaderT(..), ask, asks)
 import           Control.Monad.Trans.Class (MonadTrans)
@@ -62,6 +66,9 @@ newtype ServerT m a = ServerT (ReaderT Connection m a)
 
 type Server = ServerT IO
 
+instance MonadIO m => Failure AllocFailure (ServerT m) where
+    failure = liftIO . failure
+
 liftConn :: MonadIO m => (Connection -> IO a) -> ServerT m a
 liftConn f = ServerT $ ask >>= \c -> liftIO (f c)
 
@@ -80,12 +87,20 @@ runServer = runServerT
 connection :: MonadIO m => ServerT m Connection
 connection = liftConn return
 
--- | Return the server options.
-serverOptions :: MonadIO m => ServerT m ServerOptions
-serverOptions = liftState (getVal State.serverOptions)
+class Monad m => MonadServer m where
+    -- | Return the server options.
+    serverOptions :: m ServerOptions
 
--- | Server resource id management interface.
-class Monad m => MonadIdAllocator m where
+-- | Return a server option.
+serverOption :: MonadServer m => (ServerOptions -> a) -> m a
+serverOption = flip liftM serverOptions
+
+-- serverOptions :: MonadIO m => ServerT m ServerOptions
+instance MonadIO m => MonadServer (ServerT m) where
+    serverOptions = liftState (getVal State.serverOptions)
+
+-- | Monadic resource id management interface.
+class Failure AllocFailure m => MonadIdAllocator m where
     -- | Return the root node id.
     rootNodeId :: m NodeId
 
@@ -106,7 +121,6 @@ class Monad m => MonadIdAllocator m where
 
     -- | Free a contiguous range of ids using the given allocator.
     freeRange :: (RangeAllocator a) => Allocator a -> Range (Id a) -> m ()
-
 
 instance MonadIO m => MonadIdAllocator (ServerT m) where
     rootNodeId = liftState State.rootNodeId
