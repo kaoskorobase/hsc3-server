@@ -54,7 +54,9 @@ percentFree s = fromIntegral (numFree s) / fromIntegral (numAvailable s)
 percentUsed :: Statistics -> Double
 percentUsed s = fromIntegral (numUsed s) / fromIntegral (numAvailable s)
 
--- | IdAllocator provides an interface for allocating and releasing identifiers that correspond to server resources, such as node, buffer and bus ids.
+-- | IdAllocator provides an interface for allocating and releasing
+-- identifiers that correspond to server resources, such as node, buffer and
+-- bus ids.
 class IdAllocator a where
     type Id a
     -- | Allocate a new identifier and return the changed allocator.
@@ -81,7 +83,8 @@ class IdAllocator a where
     -- | Return usage statistics.
     statistics :: a -> Statistics
 
--- | RangeAllocator provides an interface for allocating and releasing ranges of consecutive identifiers.
+-- | RangeAllocator provides an interface for allocating and releasing ranges
+-- of consecutive identifiers.
 class IdAllocator a => RangeAllocator a where
     -- | Allocate n consecutive identifiers and return the changed allocator.
     allocRange :: Failure AllocFailure m => Int -> a -> m (Range (Id a), a)
