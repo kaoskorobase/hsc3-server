@@ -42,7 +42,8 @@ import           Control.Applicative
 import           Control.Concurrent (ThreadId, forkIO)
 import           Control.Concurrent.MVar.Strict
 import           Control.Failure (Failure(..))
-import           Control.Monad (liftM)
+import           Control.Monad (MonadPlus, liftM)
+import           Control.Monad.Fix (MonadFix)
 import           Control.Monad.IO.Class (MonadIO, liftIO)
 import           Control.Monad.Trans.Reader (ReaderT(..), ask, asks)
 import           Control.Monad.Trans.Class (MonadTrans)
@@ -62,7 +63,7 @@ import           Sound.SC3.Server.State ( Allocator
 import qualified Sound.SC3.Server.State as State
 
 newtype ServerT m a = ServerT (ReaderT Connection m a)
-    deriving (Applicative, Functor, Monad, MonadIO, MonadTrans)
+    deriving (Alternative, Applicative, Functor, Monad, MonadFix, MonadIO, MonadPlus, MonadTrans)
 
 type Server = ServerT IO
 
