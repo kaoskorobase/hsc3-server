@@ -1,7 +1,4 @@
-import           Control.Applicative
-import           Control.Concurrent
-import           Control.Monad
-import           Control.Monad.IO.Class (MonadIO(..))
+import           Control.Monad.IO.Class (liftIO)
 import           Sound.SC3.Server.Process.Monad
 import           Sound.SC3.UGen
 import           Sound.SC3.Server.Monad
