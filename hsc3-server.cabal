@@ -6,6 +6,8 @@ Description:
     resources like node, buffer and bus ids and synchronization primitives.
     .
     ChangeLog: <https://github.com/kaoskorobase/hsc3-server/blob/master/ChangeLog.md>
+    .
+    Examples: <https://github.com/kaoskorobase/hsc3-server/tree/master/examples>
 License:            GPL
 License-File:       LICENSE
 Category:           Sound
