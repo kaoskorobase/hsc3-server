@@ -26,7 +26,6 @@ module Sound.SC3.Server.Monad.Send
   , finally
   -- * Asynchronous commands
   , Async
-  , module Control.Applicative
   , mkAsync
   , mkAsync_
   , mkAsyncCM

@@ -69,10 +69,6 @@ module Sound.SC3.Server.Monad.Command
   , newAudioBus
   , ControlBus(..)
   , newControlBus
-  -- * ServerT monad
-  , module Sound.SC3.Server.Monad
-  -- * SendT monad
-  , module Sound.SC3.Server.Monad.Send
   ) where
 
 --import qualified Codec.Compression.BZip as BZip
