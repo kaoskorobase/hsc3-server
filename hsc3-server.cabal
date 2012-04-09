@@ -51,7 +51,7 @@ Library
       , deepseq >= 1.1
       , failure >= 0.1
       , hosc >= 0.8
-      , hsc3 >= 0.7
+      , hsc3 >= 0.11
       , hsc3-process >= 0.6
       , strict-concurrency
       , transformers
