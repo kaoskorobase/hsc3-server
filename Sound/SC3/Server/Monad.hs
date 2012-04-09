@@ -41,7 +41,6 @@ module Sound.SC3.Server.Monad
 import           Control.Applicative
 import           Control.Concurrent (ThreadId, forkIO)
 import           Control.Concurrent.MVar.Strict
-import           Control.Failure (Failure(..))
 import           Control.Monad (MonadPlus, liftM)
 import           Control.Monad.Fix (MonadFix)
 import           Control.Monad.IO.Class (MonadIO, liftIO)
@@ -49,7 +48,7 @@ import           Control.Monad.Trans.Reader (ReaderT(..), ask, asks)
 import           Control.Monad.Trans.Class (MonadTrans)
 import           Data.Accessor
 import           Sound.OpenSoundControl (OSC)
-import           Sound.SC3.Server.Allocator (AllocFailure, Id, IdAllocator, RangeAllocator, Range)
+import           Sound.SC3.Server.Allocator (Id, IdAllocator, RangeAllocator, Range)
 import           Sound.SC3.Server.Connection (Connection)
 import qualified Sound.SC3.Server.Connection as C
 import           Sound.SC3.Server.Notification (Notification)
@@ -66,9 +65,6 @@ newtype ServerT m a = ServerT (ReaderT Connection m a)
     deriving (Alternative, Applicative, Functor, Monad, MonadFix, MonadIO, MonadPlus, MonadTrans)
 
 type Server = ServerT IO
-
-instance MonadIO m => Failure AllocFailure (ServerT m) where
-    failure = liftIO . failure
 
 liftConn :: MonadIO m => (Connection -> IO a) -> ServerT m a
 liftConn f = ServerT $ ask >>= \c -> liftIO (f c)
@@ -101,7 +97,7 @@ instance MonadIO m => MonadServer (ServerT m) where
     serverOptions = liftState (getVal State.serverOptions)
 
 -- | Monadic resource id management interface.
-class Failure AllocFailure m => MonadIdAllocator m where
+class Monad m => MonadIdAllocator m where
     -- | Return the root node id.
     rootNodeId :: m NodeId
 
@@ -123,7 +119,7 @@ class Failure AllocFailure m => MonadIdAllocator m where
     -- | Free a contiguous range of ids using the given allocator.
     freeRange :: (RangeAllocator a) => Allocator a -> Range (Id a) -> m ()
 
-instance MonadIO m => MonadIdAllocator (ServerT m) where
+instance (MonadIO m) => MonadIdAllocator (ServerT m) where
     rootNodeId = liftState State.rootNodeId
     alloc a = liftConn $ \c -> C.alloc c a
     free a i = liftConn $ \c -> C.free c a i
