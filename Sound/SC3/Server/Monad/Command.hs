@@ -16,7 +16,7 @@ module Sound.SC3.Server.Monad.Command
   -- , d_loadDir
   , d_named
   , d_default
-  , d_new
+  , d_recv
   , d_free
   -- * Resources
   -- ** Nodes
@@ -138,10 +138,10 @@ d_default = d_named "default"
 --     where
 --         sd = SynthDef (prefix ++ "-" ++ graphName ugen)
 --         f osc = (mkC C.d_recv C.d_recv' osc) (Synthdef.synthdef (name sd) ugen)
-d_new :: Monad m => String -> UGen -> Async m SynthDef
-d_new name ugen
+d_recv :: Monad m => String -> UGen -> Async m SynthDef
+d_recv name ugen
     | length name < 255 = mkAsync $ return (SynthDef name, f)
-    | otherwise = error "d_new: name too long, resulting string exceeds 255 characters"
+    | otherwise = error "d_recv: name too long, resulting string exceeds 255 characters"
     where
         f osc = (mkC C.d_recv C.d_recv' osc) (Synthdef.synthdef name ugen)
 

@@ -44,6 +44,6 @@ run = withDefaultInternal
 latency = 0.03
  
 main = run $ do
-    sd <- immediately !> async (d_new "hsc3-server:sine" sine)
+    sd <- immediately !> async (d_recv "hsc3-server:sine" sine)
     fork statusLoop
     grainLoop sd 0.03 0.06 =<< liftIO OSC.utcr
