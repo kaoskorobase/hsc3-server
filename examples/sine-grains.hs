@@ -25,18 +25,18 @@ statusLoop = do
     pauseThread 1
     statusLoop
 
-grainLoop sd delta sustain t = do
+grainLoop synthDef delta sustain t = do
     f <- liftIO $ randomRIO (100,800)
     a <- liftIO $ randomRIO (0,0.5)
     r <- rootNode
-    synth <- OSC.UTCr (t + latency) ~> s_new sd AddToTail r [("freq", f), ("amp", a)]
+    synth <- OSC.UTCr (t + latency) ~> s_new synthDef AddToTail r [("freq", f), ("amp", a)]
     fork $ do
         let t' = t + sustain
         pauseThreadUntil t'
         OSC.UTCr (t' + latency) ~> s_release (-1) synth
     let t' = t + delta
     pauseThreadUntil t'
-    grainLoop sd delta sustain t'
+    grainLoop synthDef delta sustain t'
 
 --run = withDefaultSynth
 run = withDefaultInternal
