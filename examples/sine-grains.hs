@@ -30,7 +30,7 @@ grainLoop synthDef delta sustain t = do
     fork $ do
         let t' = t + sustain
         pauseThreadUntil t'
-        OSC.UTCr (t' + latency) ~> s_release (-1) synth
+        OSC.UTCr (t' + latency) ~> s_release 0 synth
     let t' = t + delta
     pauseThreadUntil t'
     grainLoop synthDef delta sustain t'
