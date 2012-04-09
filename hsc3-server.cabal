@@ -30,6 +30,8 @@ Library
         Sound.SC3.Server.Connection.ListenerMap.HashTable
         Sound.SC3.Server.Connection.ListenerMap.List
         Sound.SC3.Server.Monad
+        Sound.SC3.Server.Monad.Command
+        Sound.SC3.Server.Monad.Send
         Sound.SC3.Server.Notification
         Sound.SC3.Server.Process.Monad
         Sound.SC3.Server.State
