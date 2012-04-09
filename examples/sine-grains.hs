@@ -24,7 +24,7 @@ statusLoop = do
 
 grainLoop synthDef delta sustain t = do
     f <- liftIO $ randomRIO (100,800)
-    a <- liftIO $ randomRIO (0,0.5)
+    a <- liftIO $ randomRIO (0.1,0.3)
     r <- rootNode
     synth <- OSC.UTCr (t + latency) ~> s_new synthDef AddToTail r [("freq", f), ("amp", a)]
     fork $ do
