@@ -1,5 +1,5 @@
 Name:               hsc3-server
-Version:            0.3.2
+Version:            0.4.0
 Synopsis:           SuperCollider server resource management and synchronization.
 Description:
     This library provides abstractions for managing SuperCollider server
@@ -16,12 +16,12 @@ Author:             Stefan Kersten
 Maintainer:         Stefan Kersten
 Stability:          experimental
 Homepage:           http://space.k-hornz.de/software/hsc3-server
-Tested-With:        GHC == 6.10.1, GHC == 6.12.3, GHC == 7.0.1
+Tested-With:        GHC == 6.10, GHC == 6.12, GHC == 7.0, GHC == 7.2
 Build-Type:         Simple
 Cabal-Version:      >= 1.9.2
 
-Extra-Source-Files:
-    include/Accessor.h
+--Extra-Source-Files:
+    --include/Accessor.h
 
 Library
     Exposed-Modules:
@@ -47,16 +47,19 @@ Library
         base >= 3 && < 5
       , bitset >= 1.0
       , containers
-      , data-accessor >= 0.2
+      --, data-accessor >= 0.2
       , deepseq >= 1.1
       , failure >= 0.1
       , hosc >= 0.8
       , hsc3 >= 0.11
       , hsc3-process >= 0.6
+      , lifted-base >= 0.1
+      , monad-control >= 0.3
       , strict-concurrency
-      , transformers
-    Include-Dirs:
-        include
+      , transformers >= 0.2
+      , transformers-base >= 0.4
+    --Include-Dirs:
+        --include
     Ghc-Options:
         -W
     Ghc-Prof-Options:

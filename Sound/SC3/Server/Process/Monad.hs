@@ -14,9 +14,8 @@ import qualified Sound.SC3.Server.Internal as Process
 import           Sound.SC3.Server.Monad (Server)
 import qualified Sound.SC3.Server.Monad as Server
 import           Sound.SC3.Server.Options
-import           Sound.SC3.Server.Process ( OutputHandler(..), defaultOutputHandler )
+import           Sound.SC3.Server.Process (OutputHandler(..), defaultOutputHandler)
 import qualified Sound.SC3.Server.Process as Process
-import qualified Sound.SC3.Server.State as State
 
 withSynth :: ServerOptions -> RTOptions -> OutputHandler -> Server a -> IO a
 withSynth serverOptions rtOptions outputHandler action =
@@ -24,7 +23,7 @@ withSynth serverOptions rtOptions outputHandler action =
         serverOptions
         rtOptions
         outputHandler
-        $ \t -> Conn.new (State.new serverOptions) t >>= Server.runServer action
+        $ \t -> Conn.open t >>= Server.runServer action serverOptions
 
 withDefaultSynth :: Server a -> IO a
 withDefaultSynth = withSynth defaultServerOptions defaultRTOptions defaultOutputHandler
@@ -35,7 +34,7 @@ withInternal serverOptions rtOptions outputHandler action =
         serverOptions
         rtOptions
         outputHandler
-        $ \t -> Conn.new (State.new serverOptions) t >>= Server.runServer action
+        $ \t -> Conn.open t >>= Server.runServer action serverOptions
 
 withDefaultInternal :: Server a -> IO a
 withDefaultInternal = withInternal defaultServerOptions defaultRTOptions defaultOutputHandler

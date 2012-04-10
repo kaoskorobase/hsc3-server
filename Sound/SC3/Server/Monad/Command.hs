@@ -82,7 +82,6 @@ import qualified Sound.SC3.Server.Allocator.Range as Range
 import           Sound.SC3.Server.Monad hiding (sync, unsafeSync)
 import qualified Sound.SC3.Server.Monad as M
 import           Sound.SC3.Server.Monad.Send
-import qualified Sound.SC3.Server.State as State
 import qualified Sound.SC3.Server.Synthdef as Synthdef
 import           Sound.SC3.Server.Allocator (AllocFailure(..))
 import           Sound.SC3.Server.Command (AddAction(..), PrintLevel(..))
@@ -288,7 +287,7 @@ rootNode = liftM Group M.rootNodeId
 
 g_new :: MonadIO m => AddAction -> Group -> SendT m Group
 g_new a p = do
-    nid <- M.alloc State.nodeIdAllocator
+    nid <- M.alloc M.nodeIdAllocator
     send $ C.g_new [(fromIntegral nid, a, fromIntegral (nodeId p))]
     return $ Group nid
 
@@ -317,7 +316,7 @@ newtype Buffer = Buffer { bufferId :: BufferId } deriving (Eq, Ord, Show)
 
 b_alloc :: MonadIO m => Int -> Int -> Async m Buffer
 b_alloc n c = mkAsync $ do
-    bid <- M.alloc State.bufferIdAllocator
+    bid <- M.alloc M.bufferIdAllocator
     let f osc = (mkC C.b_alloc C.b_alloc' osc) (fromIntegral bid) n c
     return (Buffer bid, f)
 
@@ -401,7 +400,7 @@ b_write (Buffer bid) path
 b_free :: MonadIO m => Buffer -> Async m ()
 b_free b = mkAsync $ do
     let bid = bufferId b
-    M.free State.bufferIdAllocator bid
+    M.free M.bufferIdAllocator bid
     let f osc = (mkC C.b_free C.b_free' osc) (fromIntegral bid)
     return ((), f)
 

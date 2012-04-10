@@ -50,7 +50,6 @@ import qualified Control.Monad.Trans.State as State
 import           Data.IORef
 import           Sound.SC3.Server.Monad (MonadIdAllocator, MonadSendOSC(..), MonadServer, ServerT)
 import qualified Sound.SC3.Server.Monad as M
-import qualified Sound.SC3.Server.State as State
 import qualified Sound.SC3.Server.Command as C
 import           Sound.SC3.Server.Notification (Notification)
 import qualified Sound.SC3.Server.Notification as N
@@ -233,9 +232,9 @@ addSync m = do
         s <- gets syncState
         case s of
             NeedsSync -> do
-                sid <- liftServer $ M.alloc State.syncIdAllocator
+                sid <- liftServer $ M.alloc M.syncIdAllocator
                 send (C.sync (fromIntegral sid))
-                after_ (N.synced sid) (M.free State.syncIdAllocator sid)
+                after_ (N.synced sid) (M.free M.syncIdAllocator sid)
             _ -> return ()
     return a
 

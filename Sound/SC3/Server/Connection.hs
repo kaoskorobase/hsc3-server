@@ -4,104 +4,56 @@
 -- | A 'Connection' encapsulates the transport needed for communicating with the synthesis server, the client-side state (e.g. resource id allocators) and various synchronisation primitives.
 module Sound.SC3.Server.Connection
   ( Connection
-  , state
-  , new
+    -- * Creation and termination
+  , open
   , close
-    -- * Allocation
-  , alloc
-  , free
-  , allocMany
-  , freeMany
-  , allocRange
-  , freeRange
     -- * Communication and synchronisation
   , send
   , waitFor
   , waitFor_
   , waitForAll
   , waitForAll_
-  , sync
-  , unsafeSync
   ) where
 
 import           Control.Concurrent (forkIO)
 import           Control.Concurrent.MVar
 import           Control.Concurrent.Chan
-import           Control.Monad (liftM, replicateM, void)
-import           Data.Accessor
-import           Sound.OpenSoundControl (Datum(..), OSC(..), Transport, immediately)
+import           Control.Monad (replicateM, void)
+import           Sound.OpenSoundControl (OSC(..), Transport)
 import qualified Sound.OpenSoundControl as OSC
-import           Sound.SC3 (notify)
-import           Sound.SC3.Server.Notification (Notification(..), synced)
-import           Sound.SC3.Server.Allocator (Id, IdAllocator, Range, RangeAllocator)
-import qualified Sound.SC3.Server.Allocator as Alloc
+import           Sound.SC3.Server.Notification (Notification(..))
 import           Sound.SC3.Server.Connection.ListenerMap (Listener, ListenerId, ListenerMap)
 import qualified Sound.SC3.Server.Connection.ListenerMap as ListenerMap
-import           Sound.SC3.Server.State (Allocator, State, SyncId)
-import qualified Sound.SC3.Server.State as State
 
-data Connection  = forall t . Transport t => Connection t (MVar State) (MVar ListenerMap)
-
-state :: Connection -> MVar State
-state (Connection _ s _) = s
+data Connection  = forall t . Transport t => Connection t (MVar ListenerMap)
 
 listeners :: Connection -> MVar ListenerMap
-listeners (Connection _ _ l) = l
+listeners (Connection _ l) = l
 
-initServer :: Connection -> IO ()
-initServer c = sync c (Bundle immediately [notify True])
+-- | Register with server to receive notifications.
+{-initServer :: Connection -> IO ()-}
+{-initServer c = sync c (Bundle immediately [notify True])-}
 
 recvLoop :: Connection -> IO ()
-recvLoop c@(Connection t _ _) = do
+recvLoop c@(Connection t ls) = do
     osc <- OSC.recv t
-    withMVar (listeners c) (ListenerMap.broadcast osc)
+    withMVar ls (ListenerMap.broadcast osc)
     recvLoop c
 
--- | Create a new connection given the initial server state and an OSC transport.
-new :: Transport t => State -> t -> IO Connection
-new s t = do
-    ios <- newMVar s
-    lm <- newMVar =<< ListenerMap.empty
-    let c = Connection t ios lm
-    _ <- forkIO $ recvLoop c
-    initServer c
+-- | Create a new connection given an OSC transport.
+open :: Transport t => t -> IO Connection
+open t = do
+    ls <- newMVar =<< ListenerMap.empty
+    let c = Connection t ls
+    void $ forkIO $ recvLoop c
+    {-initServer c-}
     return c
 
 -- | Close the connection.
 --
 -- The behavior of sending messages after closing the connection is undefined.
 close :: Connection -> IO ()
-close (Connection t _ _) = OSC.close t
-
--- ====================================================================
--- Allocation
-
-withAllocator :: Connection -> Allocator a -> (a -> IO (b, a)) -> IO b
-withAllocator c a f = modifyMVar (state c) $ \s -> do
-    let x = s ^. a
-    (i, x') <- f x
-    return $ (a ^= x' $ s, i)
-
-withAllocator_ :: Connection -> Allocator a -> (a -> IO a) -> IO ()
-withAllocator_ c a f = withAllocator c a $ liftM ((,)()) . f
-
-alloc :: IdAllocator a => Connection -> Allocator a -> IO (Id a)
-alloc c a = withAllocator c a Alloc.alloc
-
-free :: IdAllocator a => Connection -> Allocator a -> Id a -> IO ()
-free c a = withAllocator_ c a . Alloc.free
-
-allocMany :: IdAllocator a => Connection -> Allocator a -> Int -> IO [Id a]
-allocMany c a = withAllocator c a . Alloc.allocMany
-
-freeMany :: IdAllocator a => Connection -> Allocator a -> [Id a] -> IO ()
-freeMany c a = withAllocator_ c a . Alloc.freeMany
-
-allocRange :: RangeAllocator a => Connection -> Allocator a -> Int -> IO (Range (Id a))
-allocRange c a = withAllocator c a . Alloc.allocRange
-
-freeRange :: RangeAllocator a => Connection -> Allocator a -> Range (Id a) -> IO ()
-freeRange c a = withAllocator_ c a . Alloc.freeRange
+close (Connection t _) = OSC.close t
 
 -- ====================================================================
 -- Communication and synchronization
@@ -127,7 +79,7 @@ removeListener c uid = modifyMVar_ (listeners c) (ListenerMap.delete uid)
 
 -- | Send an OSC packet asynchronously.
 send :: Connection -> OSC -> IO ()
-send (Connection t _ _) = OSC.send t
+send (Connection t _) = OSC.send t
 
 -- | Send an OSC packet and wait for a notification.
 --
@@ -167,22 +119,3 @@ waitForAll c osc ns = do
 waitForAll_ :: Connection -> OSC -> [Notification a] -> IO ()
 waitForAll_ c osc ns = void $ waitForAll c osc ns
 
--- | Append a @\/sync@ message to an OSC packet.
-appendSync :: OSC -> SyncId -> OSC
-appendSync p i =
-    case p of
-        m@(Message _ _) -> Bundle immediately [m, s]
-        (Bundle t xs)   -> Bundle t (xs ++ [s])
-    where s = Message "/sync" [Int (fromIntegral i)]
-
--- | Send an OSC packet and wait for the synchronization barrier.
-sync :: Connection -> OSC -> IO ()
-sync c osc = do
-    i <- alloc c State.syncIdAllocator
-    waitFor_ c (osc `appendSync` i) (synced i)
-    free c State.syncIdAllocator i
-
--- NOTE: This is only guaranteed to work with a transport that preserves
--- packet order. NOTE 2: And not even then ;)
-unsafeSync :: Connection -> IO ()
-unsafeSync c = sync c (Bundle immediately [])
