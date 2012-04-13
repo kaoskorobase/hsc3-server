@@ -144,7 +144,7 @@ liftServer = SendT . Trans.lift
 
 -- | Allocation action newtype wrapper.
 newtype AllocT m a = AllocT (ServerT m a)
-                     deriving (Applicative, MonadIdAllocator, Functor, Monad)
+                     deriving (Applicative, Functor, MonadIdAllocator, Monad)
 
 -- | Representation of a deferred server resource.
 --
