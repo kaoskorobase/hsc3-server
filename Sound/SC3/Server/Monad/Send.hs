@@ -42,7 +42,7 @@ module Sound.SC3.Server.Monad.Send
 
 import           Control.Applicative
 import           Control.Arrow (second)
-import           Control.Monad (ap, liftM, when)
+import           Control.Monad (liftM, when)
 import           Control.Monad.IO.Class (MonadIO(..))
 import qualified Control.Monad.Trans.Class as Trans
 import           Control.Monad.Trans.State (StateT(..))
@@ -153,18 +153,8 @@ newtype AllocT m a = AllocT (ServerT m a)
 --
 -- Deferred has 'Applicative' and 'Functor' instances, so that complex values
 -- can be built from simple ones.
-newtype Deferred m a = Deferred { unDefer :: ServerT m a } deriving (Monad)
-
-instance Monad m => Functor (Deferred m) where
-    fmap f (Deferred a) = Deferred (liftM f a)
-
-instance Monad m => Applicative (Deferred m) where
-    pure = Deferred . return
-    (<*>) (Deferred f) (Deferred a) = Deferred (f `ap` a)
-
--- | Construct a deferred value from an IO action.
-deferredIO :: MonadIO m => IO a -> Deferred m a
-deferredIO = Deferred . liftIO
+newtype Deferred m a = Deferred (ServerT m a)
+                       deriving (Applicative, Functor, Monad)
 
 -- | Register a cleanup action, to be executed after a notification has been
 -- received and return the deferred notification result.
@@ -173,7 +163,7 @@ after n (AllocT m) = do
     v <- liftServer $ liftIO $ newIORef (error "BUG: after: uninitialized IORef")
     modify $ \s -> s { notifications = fmap (liftIO . writeIORef v) n : notifications s
                      , cleanup = cleanup s >> m }
-    return $ deferredIO (readIORef v)
+    return $ Deferred $ liftIO $ readIORef v
 
 -- | Register a cleanup action, to be executed after a notification has been
 -- received and ignore the notification result.
@@ -266,7 +256,7 @@ asyncM (Async m) = do
 
 -- | Execute an asynchronous command asynchronously.
 async :: MonadIO m => Async m a -> SendT m (Deferred m a)
-async = asyncM . flip whenDone (return . pure)
+async = asyncM . flip whenDone (return . return)
 
 {-
 -- | Execute an server-side action after the asynchronous command has
@@ -298,8 +288,8 @@ async (Async m) = do
 
 run :: MonadIO m => Time -> SendT m (Deferred m a) -> ServerT m (ServerT m a, Maybe (OSC, [Notification (ServerT m ())]))
 run t m = do
-    (a, s) <- runSendT t NoSync $ addSync m
-    let result = cleanup s >> unDefer a
+    (Deferred a, s) <- runSendT t NoSync $ addSync m
+    let result = cleanup s >> a
     case getOSC s of
         [] -> return (result, Nothing)
         osc -> let t' = case syncState s of
@@ -336,7 +326,7 @@ exec t m = do
 -- All asynchronous commands and notifications are guaranteed to have finished
 -- when this function returns.
 execPure :: MonadIO m => Time -> SendT m a -> ServerT m a
-execPure t m = exec t (m >>= return . pure)
+execPure t m = exec t (m >>= return . return)
 
 -- | Infix operator version of 'execPure'.
 (~>) :: MonadIO m => Time -> SendT m a -> ServerT m a
