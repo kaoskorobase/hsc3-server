@@ -1,7 +1,9 @@
 {-# LANGUAGE ExistentialQuantification
            , FlexibleContexts
            , GeneralizedNewtypeDeriving #-}
--- | A 'Connection' encapsulates the transport needed for communicating with the synthesis server, the client-side state (e.g. resource id allocators) and various synchronisation primitives.
+-- | A 'Connection' encapsulates the communication with the synthesis server.
+-- This module provides functions for opening and closing connections, as well
+-- as communication and synchronisation primitives.
 module Sound.SC3.Server.Connection
   ( Connection
     -- * Creation and termination
@@ -30,10 +32,6 @@ data Connection  = forall t . Transport t => Connection t (MVar ListenerMap)
 listeners :: Connection -> MVar ListenerMap
 listeners (Connection _ l) = l
 
--- | Register with server to receive notifications.
-{-initServer :: Connection -> IO ()-}
-{-initServer c = sync c (Bundle immediately [notify True])-}
-
 recvLoop :: Connection -> IO ()
 recvLoop c@(Connection t ls) = do
     osc <- OSC.recv t
@@ -46,7 +44,6 @@ open t = do
     ls <- newMVar =<< ListenerMap.empty
     let c = Connection t ls
     void $ forkIO $ recvLoop c
-    {-initServer c-}
     return c
 
 -- | Close the connection.
@@ -65,15 +62,13 @@ mkListener f n osc =
         Nothing -> return ()
         Just a  -> f a
 
--- | Add a listener.
---
--- Listeners are entered in a hash table, although the allocation behavior may be more stack-like.
+-- | Add a listener to the listener map.
 addListener :: Connection -> Listener -> IO ListenerId
 addListener c l = modifyMVar (listeners c) $ \lm -> do
     (uid, lm') <- ListenerMap.add l lm
     return (lm', uid)
 
--- | Remove a listener.
+-- | Remove a listener from the listener map.
 removeListener :: Connection -> ListenerId -> IO ()
 removeListener c uid = modifyMVar_ (listeners c) (ListenerMap.delete uid)
 
