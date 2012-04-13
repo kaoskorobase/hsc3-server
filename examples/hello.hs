@@ -26,16 +26,12 @@ run = withDefaultInternal
 latency = 0.03
  
 main = run $ do
+    immediately ~> dumpOSC TextPrinter
     r <- rootNode
-    liftIO $ putStrLn "starting synth"
     synth <- immediately !> do
-        dumpOSC TextPrinter
         async $ d_recv "hsc3-server:sine" sine `whenDone`
             \sd -> s_new sd AddToTail r [("freq", 440), ("amp", 0.2)]
-    liftIO $ putStrLn "started synth"
     fork statusLoop
-    liftIO $ putStrLn "forked statusLoop"
     pauseThread 10
     immediately ~> s_release 0 synth
-    liftIO $ putStrLn "released synth"
     pauseThread 2
