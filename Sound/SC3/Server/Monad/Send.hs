@@ -100,11 +100,6 @@ hasOSC = not . null . buildOSC
 getOSC :: State m -> [OSC]
 getOSC = reverse . buildOSC
 
--- | Update the synchronisation state.
-setSyncState :: SyncState -> State m -> State m
-setSyncState ss s | ss > syncState s = s { syncState = ss }
-                  | otherwise        = s
-
 -- | Representation of a server-side action (or sequence of actions).
 newtype SendT m a = SendT (StateT (State m) (ServerT m) a)
                     deriving (Applicative, Functor, Monad)
@@ -254,16 +249,18 @@ asyncM (Async m) = do
     case getOSC s of
         [] -> do
             send (g Nothing)
-            modify $ \s' -> (setSyncState NeedsSync s') {
-                notifications = notifications s' ++ notifications s
+            modify $ \s' -> s' {
+                syncState = max NeedsSync (syncState s')
+              , notifications = notifications s' ++ notifications s
               , cleanup = cleanup s' >> cleanup s }
         osc -> do
             let t' = case syncState s of
                         HasSync -> immediately
                         _       -> t
             send $ g (Just (Bundle t' osc))
-            modify $ \s' -> (setSyncState HasSync s') {
-                notifications = notifications s' ++ notifications s
+            modify $ \s' -> s' {
+                syncState = max HasSync (syncState s')
+              , notifications = notifications s' ++ notifications s
               , cleanup = cleanup s' >> cleanup s }
     return a
 
