@@ -311,11 +311,11 @@ exec t m = do
     --         let t' = case syncState s of
     --                     HasSync -> immediately
     --                     _ -> t
-    (action, sync) <- run t m
+    (result, sync) <- run t m
     case sync of
         Nothing -> return ()
         Just (osc, ns) -> M.waitForAll osc ns >>= sequence_
-    action
+    result
 
 -- | Infix operator version of 'exec'.
 (!>) :: MonadIO m => Time -> SendT m (Deferred m a) -> ServerT m a
