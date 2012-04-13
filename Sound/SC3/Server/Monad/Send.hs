@@ -104,7 +104,7 @@ getOSC = reverse . buildOSC
 newtype SendT m a = SendT (StateT (State m) (ServerT m) a)
                     deriving (Applicative, Functor, Monad)
 
-instance MonadIO m => MonadServer (SendT m) where
+instance Monad m => MonadServer (SendT m) where
     serverOptions = liftServer M.serverOptions
 
 instance MonadIO m => MonadIdAllocator (SendT m) where
