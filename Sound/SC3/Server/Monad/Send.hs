@@ -156,7 +156,7 @@ newtype AllocT m a = AllocT (ServerT m a)
 newtype Deferred m a = Deferred (ServerT m a)
                        deriving (Applicative, Functor, Monad)
 
--- | Register a cleanup action, to be executed after a notification has been
+-- | Register a cleanup action that is executed after the notification has been
 -- received and return the deferred notification result.
 after :: MonadIO m => Notification a -> AllocT m () -> SendT m (Deferred m a)
 after n (AllocT m) = do
@@ -171,8 +171,8 @@ after_ :: Monad m => Notification a -> AllocT m () -> SendT m ()
 after_ n (AllocT m) = modify $ \s -> s { notifications = fmap (const (return ())) n : notifications s
                                        , cleanup = cleanup s >> m }
 
--- | Register a cleanup action, to be executed after all asynchronous commands
--- and notification have finished.
+-- | Register a cleanup action that is executed after all asynchronous commands
+-- and notifications have been performed.
 finally :: Monad m => AllocT m () -> SendT m ()
 finally (AllocT m) = modify $ \s -> s { cleanup = cleanup s >> m }
 
