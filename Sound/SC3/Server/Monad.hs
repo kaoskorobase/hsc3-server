@@ -147,7 +147,7 @@ serverOption :: MonadServer m => (ServerOptions -> a) -> m a
 serverOption = flip liftM serverOptions
 
 -- serverOptions :: MonadIO m => ServerT m ServerOptions
-instance MonadIO m => MonadServer (ServerT m) where
+instance Monad m => MonadServer (ServerT m) where
     serverOptions = ServerT $ asks _serverOptions
 
 -- | Monadic resource id management interface.
