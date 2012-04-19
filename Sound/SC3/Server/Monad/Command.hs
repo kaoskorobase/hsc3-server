@@ -105,7 +105,7 @@ mkC _ f (Just osc) = f osc
 status :: MonadIO m => SendT m (Deferred m N.Status)
 status = send C.status >> after N.status_reply (return ())
 
-dumpOSC :: MonadIO m => PrintLevel -> SendT m ()
+dumpOSC :: MonadIO m => PrintLevel -> SendT m (Deferred m ())
 dumpOSC p = do
     i <- M.alloc M.syncIdAllocator
     send (C.dumpOSC p)
@@ -268,7 +268,7 @@ s_new d a g xs = do
 s_new_ :: MonadIO m => SynthDef -> AddAction -> [(String, Double)] -> SendT m Synth
 s_new_ d a xs = rootNode >>= \g -> s_new d a g xs
 
-s_release :: (Node a, MonadIO m) => Double -> a -> SendT m ()
+s_release :: (Node a, MonadIO m) => Double -> a -> SendT m (Deferred m ())
 s_release r n = do
     send (C.n_set1 (fromIntegral nid) "gate" r)
     after_ (N.n_end_ nid) (M.free M.nodeIdAllocator nid)

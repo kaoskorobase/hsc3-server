@@ -148,8 +148,8 @@ newtype AllocT m a = AllocT (ServerT m a)
 
 -- | Representation of a deferred server resource.
 --
--- Deferred resource values can only be observed a return value of the 'SendT'
--- action after 'exec' has been called.
+-- Deferred resource values can only be observed as a return value of the
+-- 'SendT' action after 'exec' has been called.
 --
 -- Deferred has 'Applicative' and 'Functor' instances, so that complex values
 -- can be built from simple ones.
@@ -167,9 +167,11 @@ after n (AllocT m) = do
 
 -- | Register a cleanup action, to be executed after a notification has been
 -- received and ignore the notification result.
-after_ :: Monad m => Notification a -> AllocT m () -> SendT m ()
-after_ n (AllocT m) = modify $ \s -> s { notifications = fmap (const (return ())) n : notifications s
-                                       , cleanup = cleanup s >> m }
+after_ :: Monad m => Notification a -> AllocT m () -> SendT m (Deferred m ())
+after_ n (AllocT m) = do
+    modify $ \s -> s { notifications = fmap (const (return ())) n : notifications s
+                     , cleanup = cleanup s >> m }
+    return $ Deferred $ return ()
 
 -- | Register a cleanup action that is executed after all asynchronous commands
 -- and notifications have been performed.
@@ -220,6 +222,7 @@ addSync m = do
                 sid <- liftServer $ M.alloc M.syncIdAllocator
                 send (C.sync (fromIntegral sid))
                 after_ (N.synced sid) (M.free M.syncIdAllocator sid)
+                return ()
             _ -> return ()
     return a
 
