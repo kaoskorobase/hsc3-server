@@ -55,6 +55,7 @@ Library
       , hsc3-process >= 0.6
       , lifted-base >= 0.1
       , monad-control >= 0.3
+      , resourcet >= 0.3
       , strict-concurrency
       , transformers >= 0.2
       , transformers-base >= 0.4
