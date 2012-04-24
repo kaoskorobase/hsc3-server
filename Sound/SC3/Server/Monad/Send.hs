@@ -17,7 +17,7 @@
 -- >         return $ pure (g, ig, b)
 -- > return $ (,) <$> b0 <*> x
 module Sound.SC3.Server.Monad.Send
-  ( SendT
+  ( RequestT
   , AllocT
   -- * Deferred values
   , Deferred
@@ -75,7 +75,7 @@ data SyncState =
   | HasSync     -- ^ Synchronisation barrier already present in the current context.
   deriving (Eq, Ord, Show)
 
--- | Internal state used for constructing bundles from 'SendT' actions.
+-- | Internal state used for constructing bundles from 'RequestT' actions.
 data State m = State {
     buildOSC      :: [OSC]                         -- ^ Current list of OSC messages.
   , notifications :: [Notification (ServerT m ())] -- ^ Current list of notifications to synchronise on.
@@ -84,7 +84,7 @@ data State m = State {
   , syncState     :: SyncState                     -- ^ Synchronisation barrier state.
   }
 
--- | Construct a 'SendT' state with a given synchronisation state.
+-- | Construct a 'RequestT' state with a given synchronisation state.
 mkState :: Monad m => Time -> SyncState -> State m
 mkState = State [] [] (return ())
 
@@ -101,13 +101,13 @@ getOSC :: State m -> [OSC]
 getOSC = reverse . buildOSC
 
 -- | Representation of a server-side action (or sequence of actions).
-newtype SendT m a = SendT (StateT (State m) (ServerT m) a)
+newtype RequestT m a = RequestT (StateT (State m) (ServerT m) a)
                     deriving (Applicative, Functor, Monad)
 
-instance Monad m => MonadServer (SendT m) where
+instance Monad m => MonadServer (RequestT m) where
     serverOptions = liftServer M.serverOptions
 
-instance MonadIO m => MonadIdAllocator (SendT m) where
+instance MonadIO m => MonadIdAllocator (RequestT m) where
     rootNodeId = liftServer M.rootNodeId
     alloc = liftServer . M.alloc
     free a = liftServer . M.free a
@@ -118,29 +118,29 @@ instance MonadIO m => MonadIdAllocator (SendT m) where
 
 -- | Bundles are flattened into the resulting bundle because @scsynth@ doesn't
 -- support nested bundles.
-instance Monad m => MonadSendOSC (SendT m) where
+instance Monad m => MonadSendOSC (RequestT m) where
     send osc@(Message _ _) = modify (pushOSC osc)
     send (Bundle _ xs)     = mapM_ send xs
 
--- | Execute a SendT action, returning the result and the final state.
-runSendT :: Monad m => Time -> SyncState -> SendT m a -> ServerT m (a, State m)
-runSendT t s (SendT m) = State.runStateT m (mkState t s)
+-- | Execute a RequestT action, returning the result and the final state.
+runRequestT :: Monad m => Time -> SyncState -> RequestT m a -> ServerT m (a, State m)
+runRequestT t s (RequestT m) = State.runStateT m (mkState t s)
 
 -- | Get a value from the state.
-gets :: Monad m => (State m -> a) -> SendT m a
-gets = SendT . State.gets
+gets :: Monad m => (State m -> a) -> RequestT m a
+gets = RequestT . State.gets
 
--- | Modify the state in a SendT action.
-modify :: Monad m => (State m -> State m) -> SendT m ()
-modify = SendT . State.modify
+-- | Modify the state in a RequestT action.
+modify :: Monad m => (State m -> State m) -> RequestT m ()
+modify = RequestT . State.modify
 
--- | Lift a ServerT action into SendT.
+-- | Lift a ServerT action into RequestT.
 --
 -- This is potentially unsafe and should only be used for the allocation of
 -- server resources. Lifting actions that rely on communication and
 -- synchronisation primitives will not work as expected.
-liftServer :: Monad m => ServerT m a -> SendT m a
-liftServer = SendT . Trans.lift
+liftServer :: Monad m => ServerT m a -> RequestT m a
+liftServer = RequestT . Trans.lift
 
 -- | Allocation action newtype wrapper.
 newtype AllocT m a = AllocT (ServerT m a)
@@ -149,7 +149,7 @@ newtype AllocT m a = AllocT (ServerT m a)
 -- | Representation of a deferred server resource.
 --
 -- Deferred resource values can only be observed as a return value of the
--- 'SendT' action after 'exec' has been called.
+-- 'RequestT' action after 'exec' has been called.
 --
 -- Deferred has 'Applicative' and 'Functor' instances, so that complex values
 -- can be built from simple ones.
@@ -158,7 +158,7 @@ newtype Deferred m a = Deferred (ServerT m a)
 
 -- | Register a cleanup action that is executed after the notification has been
 -- received and return the deferred notification result.
-after :: MonadIO m => Notification a -> AllocT m () -> SendT m (Deferred m a)
+after :: MonadIO m => Notification a -> AllocT m () -> RequestT m (Deferred m a)
 after n (AllocT m) = do
     v <- liftServer $ liftIO $ newIORef (error "BUG: after: uninitialized IORef")
     modify $ \s -> s { notifications = fmap (liftIO . writeIORef v) n : notifications s
@@ -167,7 +167,7 @@ after n (AllocT m) = do
 
 -- | Register a cleanup action, to be executed after a notification has been
 -- received and ignore the notification result.
-after_ :: Monad m => Notification a -> AllocT m () -> SendT m (Deferred m ())
+after_ :: Monad m => Notification a -> AllocT m () -> RequestT m (Deferred m ())
 after_ n (AllocT m) = do
     modify $ \s -> s { notifications = fmap (const (return ())) n : notifications s
                      , cleanup = cleanup s >> m }
@@ -175,7 +175,7 @@ after_ n (AllocT m) = do
 
 -- | Register a cleanup action that is executed after all asynchronous commands
 -- and notifications have been performed.
-finally :: Monad m => AllocT m () -> SendT m ()
+finally :: Monad m => AllocT m () -> RequestT m ()
 finally (AllocT m) = modify $ \s -> s { cleanup = cleanup s >> m }
 
 -- | Representation of an asynchronous server command. Asynchronous commands
@@ -185,9 +185,9 @@ finally (AllocT m) = modify $ \s -> s { cleanup = cleanup s >> m }
 --
 -- * using 'whenDone' for server-side synchronisation, or
 --
--- * using 'async' and observing the result of a 'SendT' action after calling
+-- * using 'async' and observing the result of a 'RequestT' action after calling
 -- 'exec'.
-newtype Async m a = Async (SendT m (a, (Maybe OSC -> OSC)))
+newtype Async m a = Async (RequestT m (a, (Maybe OSC -> OSC)))
 
 -- | Create an asynchronous command from an allocation action.
 --
@@ -211,7 +211,7 @@ mkAsyncCM = mkAsync . liftM (second f)
         f msg (Just cm) = C.withCM msg cm
 
 -- | Add a synchronisation barrier.
-addSync :: MonadIO m => SendT m a -> SendT m a
+addSync :: MonadIO m => RequestT m a -> RequestT m a
 addSync m = do
     a <- m
     b <- gets hasOSC
@@ -228,17 +228,17 @@ addSync m = do
 
 -- | Execute an server-side action after the asynchronous command has
 -- finished.
-whenDone :: MonadIO m => Async m a -> (a -> SendT m b) -> Async m b
+whenDone :: MonadIO m => Async m a -> (a -> RequestT m b) -> Async m b
 whenDone (Async m) f = Async $ do
     (a, g) <- m
     b <- f a
     return (b, g)
 
 -- | Execute an asynchronous command asynchronously.
-asyncM :: MonadIO m => Async m (Deferred m a) -> SendT m (Deferred m a)
+asyncM :: MonadIO m => Async m (Deferred m a) -> RequestT m (Deferred m a)
 asyncM (Async m) = do
     t <- gets timeTag
-    ((a, g), s) <- liftServer $ runSendT t NeedsSync $ addSync m
+    ((a, g), s) <- liftServer $ runRequestT t NeedsSync $ addSync m
     case getOSC s of
         [] -> do
             send (g Nothing)
@@ -258,18 +258,18 @@ asyncM (Async m) = do
     return a
 
 -- | Execute an asynchronous command asynchronously.
-async :: MonadIO m => Async m a -> SendT m (Deferred m a)
+async :: MonadIO m => Async m a -> RequestT m (Deferred m a)
 async = asyncM . flip whenDone (return . return)
 
 {-
 -- | Execute an server-side action after the asynchronous command has
 -- finished. The corresponding server commands are scheduled at a time @t@ in
 -- the future.
-whenDone :: MonadIO m => Async m a -> (a -> SendT m b) -> SendT m (Deferred b)
+whenDone :: MonadIO m => Async m a -> (a -> RequestT m b) -> RequestT m (Deferred b)
 whenDone (Async m) f = do
     t <- gets timeTag
     (a, g) <- m
-    (b, s) <- liftServer $ runSendT t NeedsSync $ addSync (f a)
+    (b, s) <- liftServer $ runRequestT t NeedsSync $ addSync (f a)
     let t' = case syncState s of
                 HasSync -> immediately
                 _       -> t
@@ -281,7 +281,7 @@ whenDone (Async m) f = do
     return b
 
 -- | Execute an asynchronous command asynchronously.
-async :: MonadIO m => Async m a -> SendT m (Deferred a)
+async :: MonadIO m => Async m a -> RequestT m (Deferred a)
 async (Async m) = do
     (a, g) <- m
     send (g Nothing)
@@ -289,9 +289,9 @@ async (Async m) = do
     return $ pure a
 -}
 
-run :: MonadIO m => Time -> SendT m (Deferred m a) -> ServerT m (ServerT m a, Maybe (OSC, [Notification (ServerT m ())]))
+run :: MonadIO m => Time -> RequestT m (Deferred m a) -> ServerT m (ServerT m a, Maybe (OSC, [Notification (ServerT m ())]))
 run t m = do
-    (Deferred a, s) <- runSendT t NoSync $ addSync m
+    (Deferred a, s) <- runRequestT t NoSync $ addSync m
     let result = cleanup s >> a
     case getOSC s of
         [] -> return (result, Nothing)
@@ -300,13 +300,13 @@ run t m = do
                             _ -> t
                in return (result, Just (Bundle t' osc, notifications s))
 
--- | Run the 'SendT' action and return the result.
+-- | Run the 'RequestT' action and return the result.
 --
 -- All asynchronous commands and notifications are guaranteed to have finished
 -- when this function returns.
-exec :: MonadIO m => Time -> SendT m (Deferred m a) -> ServerT m a
+exec :: MonadIO m => Time -> RequestT m (Deferred m a) -> ServerT m a
 exec t m = do
-    -- (a, s) <- runSendT t NoSync $ addSync m
+    -- (a, s) <- runRequestT t NoSync $ addSync m
     -- case getOSC s of
     --     [] -> return ()
     --     osc -> do
@@ -321,16 +321,16 @@ exec t m = do
     result
 
 -- | Infix operator version of 'exec'.
-(!>) :: MonadIO m => Time -> SendT m (Deferred m a) -> ServerT m a
+(!>) :: MonadIO m => Time -> RequestT m (Deferred m a) -> ServerT m a
 (!>) = exec
 
--- | Run a 'SendT' action that returns a pure result.
+-- | Run a 'RequestT' action that returns a pure result.
 --
 -- All asynchronous commands and notifications are guaranteed to have finished
 -- when this function returns.
-execPure :: MonadIO m => Time -> SendT m a -> ServerT m a
+execPure :: MonadIO m => Time -> RequestT m a -> ServerT m a
 execPure t m = exec t (m >>= return . return)
 
 -- | Infix operator version of 'execPure'.
-(~>) :: MonadIO m => Time -> SendT m a -> ServerT m a
+(~>) :: MonadIO m => Time -> RequestT m a -> ServerT m a
 (~>) = execPure

@@ -102,10 +102,10 @@ mkC _ f (Just osc) = f osc
 -- ====================================================================
 -- Master controls
 
-status :: MonadIO m => SendT m (Deferred m N.Status)
+status :: MonadIO m => RequestT m (Deferred m N.Status)
 status = send C.status >> after N.status_reply (return ())
 
-dumpOSC :: MonadIO m => PrintLevel -> SendT m (Deferred m ())
+dumpOSC :: MonadIO m => PrintLevel -> RequestT m (Deferred m ())
 dumpOSC p = do
     i <- M.alloc M.syncIdAllocator
     send (C.dumpOSC p)
@@ -145,7 +145,7 @@ d_recv name ugen
         f osc = (mkC C.d_recv C.d_recv' osc) (Synthdef.synthdef name ugen)
 
 -- | Remove definition once all nodes using it have ended.
-d_free :: Monad m => SynthDef -> SendT m ()
+d_free :: Monad m => SynthDef -> RequestT m ()
 d_free = send . C.d_free . (:[]) . name
 
 -- ====================================================================
@@ -169,19 +169,19 @@ n_wrap :: (Eq n, Node n, Show n) => n -> AbstractNode
 n_wrap = AbstractNode
 
 -- | Place node @a@ after node @b@.
-n_after :: (Node a, Node b, Monad m) => a -> b -> SendT m ()
+n_after :: (Node a, Node b, Monad m) => a -> b -> RequestT m ()
 n_after a b = send $ C.n_after [(fromIntegral (nodeId a), fromIntegral (nodeId b))]
 
 -- | Place node @a@ before node @b@.
-n_before :: (Node a, Node b, Monad m) => a -> b -> SendT m ()
+n_before :: (Node a, Node b, Monad m) => a -> b -> RequestT m ()
 n_before a b = send $ C.n_after [(fromIntegral (nodeId a), fromIntegral (nodeId b))]
 
 -- | Fill ranges of a node's control values.
-n_fill :: (Node a, Monad m) => a -> [(String, Int, Double)] -> SendT m ()
+n_fill :: (Node a, Monad m) => a -> [(String, Int, Double)] -> RequestT m ()
 n_fill n = send . C.n_fill (fromIntegral (nodeId n))
 
 -- | Delete a node.
-n_free :: (Node a, MonadIO m) => a -> SendT m ()
+n_free :: (Node a, MonadIO m) => a -> RequestT m ()
 n_free n = do
     send $ C.n_free [fromIntegral (nodeId n)]
     finally $ M.free M.nodeIdAllocator (nodeId n)
@@ -189,9 +189,9 @@ n_free n = do
 -- | Mapping node controls to buses.
 class BusMapping n b where
     -- | Map a node's controls to read from a control bus.
-    n_map :: (Node n, Bus b, Monad m) => n -> String -> b -> SendT m ()
+    n_map :: (Node n, Bus b, Monad m) => n -> String -> b -> RequestT m ()
     -- | Remove a control's mapping to a control bus.
-    n_unmap :: (Node n, Bus b, Monad m) => n -> String -> b -> SendT m ()
+    n_unmap :: (Node n, Bus b, Monad m) => n -> String -> b -> RequestT m ()
 
 instance BusMapping n ControlBus where
     n_map n c b = send msg
@@ -224,31 +224,31 @@ instance BusMapping n AudioBus where
                   else C.n_mapa  nid [(c, -1)]
 
 -- | Query a node.
-n_query_ :: (Node a, Monad m) => a -> SendT m ()
+n_query_ :: (Node a, Monad m) => a -> RequestT m ()
 n_query_ n = send $ C.n_query [fromIntegral (nodeId n)]
 
 -- | Query a node.
-n_query :: (Node a, MonadIO m) => a -> SendT m (Deferred m N.NodeNotification)
+n_query :: (Node a, MonadIO m) => a -> RequestT m (Deferred m N.NodeNotification)
 n_query n = n_query_ n >> after (N.n_info (nodeId n)) (return ())
 
 -- | Turn node on or off.
-n_run_ :: (Node a, Monad m) => a -> Bool -> SendT m ()
+n_run_ :: (Node a, Monad m) => a -> Bool -> RequestT m ()
 n_run_ n b = send $ C.n_run [(fromIntegral (nodeId n), b)]
 
 -- | Set a node's control values.
-n_set :: (Node a, Monad m) => a -> [(String, Double)] -> SendT m ()
+n_set :: (Node a, Monad m) => a -> [(String, Double)] -> RequestT m ()
 n_set n = send . C.n_set (fromIntegral (nodeId n))
 
 -- | Set ranges of a node's control values.
-n_setn :: (Node a, Monad m) => a -> [(String, [Double])] -> SendT m ()
+n_setn :: (Node a, Monad m) => a -> [(String, [Double])] -> RequestT m ()
 n_setn n = send . C.n_setn (fromIntegral (nodeId n))
 
 -- | Trace a node.
-n_trace :: (Node a, Monad m) => a -> SendT m ()
+n_trace :: (Node a, Monad m) => a -> RequestT m ()
 n_trace n = send $ C.n_trace [fromIntegral (nodeId n)]
 
 -- | Move an ordered sequence of nodes.
-n_order :: (Node n, Monad m) => AddAction -> n -> [AbstractNode] -> SendT m ()
+n_order :: (Node n, Monad m) => AddAction -> n -> [AbstractNode] -> RequestT m ()
 n_order a n = send . C.n_order a (fromIntegral (nodeId n)) . map (fromIntegral.nodeId)
 
 -- ====================================================================
@@ -259,16 +259,16 @@ newtype Synth = Synth NodeId deriving (Eq, Ord, Show)
 instance Node Synth where
     nodeId (Synth nid) = nid
 
-s_new :: MonadIO m => SynthDef -> AddAction -> Group -> [(String, Double)] -> SendT m Synth
+s_new :: MonadIO m => SynthDef -> AddAction -> Group -> [(String, Double)] -> RequestT m Synth
 s_new d a g xs = do
     nid <- M.alloc M.nodeIdAllocator
     send $ C.s_new (name d) (fromIntegral nid) a (fromIntegral (nodeId g)) xs
     return $ Synth nid
 
-s_new_ :: MonadIO m => SynthDef -> AddAction -> [(String, Double)] -> SendT m Synth
+s_new_ :: MonadIO m => SynthDef -> AddAction -> [(String, Double)] -> RequestT m Synth
 s_new_ d a xs = rootNode >>= \g -> s_new d a g xs
 
-s_release :: (Node a, MonadIO m) => Double -> a -> SendT m (Deferred m ())
+s_release :: (Node a, MonadIO m) => Double -> a -> RequestT m (Deferred m ())
 s_release r n = do
     send (C.n_set1 (fromIntegral nid) "gate" r)
     after_ (N.n_end_ nid) (M.free M.nodeIdAllocator nid)
@@ -285,28 +285,28 @@ instance Node Group where
 rootNode :: MonadIdAllocator m => m Group
 rootNode = liftM Group M.rootNodeId
 
-g_new :: MonadIO m => AddAction -> Group -> SendT m Group
+g_new :: MonadIO m => AddAction -> Group -> RequestT m Group
 g_new a p = do
     nid <- M.alloc M.nodeIdAllocator
     send $ C.g_new [(fromIntegral nid, a, fromIntegral (nodeId p))]
     return $ Group nid
 
-g_new_ :: MonadIO m => AddAction -> SendT m Group
+g_new_ :: MonadIO m => AddAction -> RequestT m Group
 g_new_ a = rootNode >>= g_new a
 
-g_deepFree :: Monad m => Group -> SendT m ()
+g_deepFree :: Monad m => Group -> RequestT m ()
 g_deepFree g = send $ C.g_deepFree [fromIntegral (nodeId g)]
 
-g_freeAll :: Monad m => Group -> SendT m ()
+g_freeAll :: Monad m => Group -> RequestT m ()
 g_freeAll g = send $ C.g_freeAll [fromIntegral (nodeId g)]
 
-g_head :: (Node n, Monad m) => Group -> n -> SendT m ()
+g_head :: (Node n, Monad m) => Group -> n -> RequestT m ()
 g_head g n = send $ C.g_head [(fromIntegral (nodeId g), fromIntegral (nodeId n))]
 
-g_tail :: (Node n, Monad m) => Group -> n -> SendT m ()
+g_tail :: (Node n, Monad m) => Group -> n -> RequestT m ()
 g_tail g n = send $ C.g_tail [(fromIntegral (nodeId g), fromIntegral (nodeId n))]
 
-g_dumpTree :: Monad m => [(Group, Bool)] -> SendT m ()
+g_dumpTree :: Monad m => [(Group, Bool)] -> RequestT m ()
 g_dumpTree = send . C.g_dumpTree . map (first (fromIntegral . nodeId))
 
 -- ====================================================================
@@ -409,7 +409,7 @@ b_zero (Buffer bid) = mkAsync_ f
     where
         f osc = (mkC C.b_zero C.b_zero' osc) (fromIntegral bid)
 
-b_query :: MonadIO m => Buffer -> SendT m (Deferred m N.BufferInfo)
+b_query :: MonadIO m => Buffer -> RequestT m (Deferred m N.BufferInfo)
 b_query (Buffer bid) = do
     send (C.b_query [fromIntegral bid])
     after (N.b_info bid) (return ())
