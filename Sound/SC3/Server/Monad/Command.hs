@@ -81,7 +81,7 @@ import           Sound.SC3 (Rate(..), UGen)
 import qualified Sound.SC3.Server.Allocator.Range as Range
 import           Sound.SC3.Server.Monad hiding (sync, unsafeSync)
 import qualified Sound.SC3.Server.Monad as M
-import           Sound.SC3.Server.Monad.Send
+import           Sound.SC3.Server.Monad.Request
 import qualified Sound.SC3.Server.Synthdef as Synthdef
 import           Sound.SC3.Server.Allocator (AllocFailure(..))
 import           Sound.SC3.Server.Command (AddAction(..), PrintLevel(..))

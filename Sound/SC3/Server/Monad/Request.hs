@@ -16,7 +16,7 @@
 -- >         ig <- g_new AddToTail g
 -- >         return $ pure (g, ig, b)
 -- > return $ (,) <$> b0 <*> x
-module Sound.SC3.Server.Monad.Send
+module Sound.SC3.Server.Monad.Request
   ( RequestT
   , AllocT
   -- * Deferred values
@@ -34,7 +34,7 @@ module Sound.SC3.Server.Monad.Send
   {-, asyncM-}
   , async
   -- * Command execution
-  , run
+  , runRequestT
   , exec
   , (!>)
   {-, execPure-}
@@ -124,8 +124,8 @@ instance Monad m => MonadSendOSC (RequestT m) where
     send (Bundle _ xs)     = mapM_ send xs
 
 -- | Execute a RequestT action, returning the result and the final state.
-runRequestT :: Monad m => Time -> SyncState -> RequestT m a -> ServerT m (a, State m)
-runRequestT t s (RequestT m) = State.runStateT m (mkState t s)
+runRequestT_ :: Monad m => Time -> SyncState -> RequestT m a -> ServerT m (a, State m)
+runRequestT_ t s (RequestT m) = State.runStateT m (mkState t s)
 
 -- | Get a value from the state.
 gets :: Monad m => (State m -> a) -> RequestT m a
@@ -237,7 +237,7 @@ whenDone (Async m) f = Async $ do
 async :: MonadIO m => Async m a -> RequestT m (Deferred m a)
 async (Async m) = do
     t <- gets timeTag
-    ((a, g), s) <- liftServer $ runRequestT t NeedsSync $ addSync m
+    ((a, g), s) <- liftServer $ runRequestT_ t NeedsSync $ addSync m
     case getOSC s of
         [] -> do
             send (g Nothing)
@@ -268,7 +268,7 @@ whenDone :: MonadIO m => Async m a -> (a -> RequestT m b) -> RequestT m (Deferre
 whenDone (Async m) f = do
     t <- gets timeTag
     (a, g) <- m
-    (b, s) <- liftServer $ runRequestT t NeedsSync $ addSync (f a)
+    (b, s) <- liftServer $ runRequestT_ t NeedsSync $ addSync (f a)
     let t' = case syncState s of
                 HasSync -> immediately
                 _       -> t
@@ -288,9 +288,9 @@ async (Async m) = do
     return $ pure a
 -}
 
-run :: MonadIO m => Time -> RequestT m a -> ServerT m (ServerT m a, Maybe (OSC, [Notification (ServerT m ())]))
-run t m = do
-    (a, s) <- runRequestT t NoSync $ addSync m
+runRequestT :: MonadIO m => Time -> RequestT m a -> ServerT m (ServerT m a, Maybe (OSC, [Notification (ServerT m ())]))
+runRequestT t m = do
+    (a, s) <- runRequestT_ t NoSync $ addSync m
     let result = cleanup s >> return a
     case getOSC s of
         [] -> return (result, Nothing)
@@ -305,7 +305,7 @@ run t m = do
 -- when this function returns.
 exec :: MonadIO m => Time -> RequestT m a -> ServerT m a
 exec t m = do
-    -- (a, s) <- runRequestT t NoSync $ addSync m
+    -- (a, s) <- runRequestT_ t NoSync $ addSync m
     -- case getOSC s of
     --     [] -> return ()
     --     osc -> do
@@ -313,7 +313,7 @@ exec t m = do
     --         let t' = case syncState s of
     --                     HasSync -> immediately
     --                     _ -> t
-    (result, sync) <- run t m
+    (result, sync) <- runRequestT t m
     case sync of
         Nothing -> return ()
         Just (osc, ns) -> M.waitForAll osc ns >>= sequence_
