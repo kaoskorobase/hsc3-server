@@ -10,7 +10,6 @@ module Sound.SC3.Server.Monad
   , runServerT
   , Server
   , runServer
-  , liftIO
   -- * Server options
   , MonadServer(..)
   , serverOption
