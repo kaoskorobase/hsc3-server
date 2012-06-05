@@ -51,6 +51,7 @@ module Sound.SC3.Server.Monad.Command
   , g_dumpTree
   -- ** Buffers
   , Buffer
+  , bufferId
   , b_alloc
   , b_read
   , HeaderFormat(..)
