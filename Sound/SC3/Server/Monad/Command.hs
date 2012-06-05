@@ -450,7 +450,7 @@ inputBus n i = do
     k <- serverOption numberOfOutputBusChannels
     m <- serverOption numberOfInputBusChannels
     let r = Range.sized n (fromIntegral (k+i))
-    if Range.begin r < fromIntegral k || Range.end r >= fromIntegral (k+m)
+    if Range.begin r < fromIntegral k || Range.end r > fromIntegral (k+m)
         then failure InvalidId
         else return (AudioBus r)
 
@@ -459,7 +459,7 @@ outputBus :: (MonadServer m, Failure AllocFailure m) => Int -> Int -> m AudioBus
 outputBus n i = do
     k <- serverOption numberOfOutputBusChannels
     let r = Range.sized n (fromIntegral i)
-    if Range.begin r < 0 || Range.end r >= fromIntegral k
+    if Range.begin r < 0 || Range.end r > fromIntegral k
         then failure InvalidId
         else return (AudioBus r)
 
