@@ -102,10 +102,10 @@ mkC _ f (Just osc) = f osc
 -- ====================================================================
 -- Master controls
 
-status :: MonadIO m => RequestT m (Deferred m N.Status)
+status :: MonadIO m => RequestT m (Resource m N.Status)
 status = send C.status >> after N.status_reply (return ())
 
-dumpOSC :: MonadIO m => PrintLevel -> RequestT m (Deferred m ())
+dumpOSC :: MonadIO m => PrintLevel -> RequestT m (Resource m ())
 dumpOSC p = do
     i <- M.alloc M.syncIdAllocator
     send (C.dumpOSC p)
@@ -228,7 +228,7 @@ n_query_ :: (Node a, Monad m) => a -> RequestT m ()
 n_query_ n = send $ C.n_query [fromIntegral (nodeId n)]
 
 -- | Query a node.
-n_query :: (Node a, MonadIO m) => a -> RequestT m (Deferred m N.NodeNotification)
+n_query :: (Node a, MonadIO m) => a -> RequestT m (Resource m N.NodeNotification)
 n_query n = n_query_ n >> after (N.n_info (nodeId n)) (return ())
 
 -- | Turn node on or off.
@@ -268,7 +268,7 @@ s_new d a g xs = do
 s_new_ :: MonadIO m => SynthDef -> AddAction -> [(String, Double)] -> RequestT m Synth
 s_new_ d a xs = rootNode >>= \g -> s_new d a g xs
 
-s_release :: (Node a, MonadIO m) => Double -> a -> RequestT m (Deferred m ())
+s_release :: (Node a, MonadIO m) => Double -> a -> RequestT m (Resource m ())
 s_release r n = do
     send (C.n_set1 (fromIntegral nid) "gate" r)
     after_ (N.n_end_ nid) (M.free M.nodeIdAllocator nid)
@@ -409,7 +409,7 @@ b_zero (Buffer bid) = mkAsync_ f
     where
         f osc = (mkC C.b_zero C.b_zero' osc) (fromIntegral bid)
 
-b_query :: MonadIO m => Buffer -> RequestT m (Deferred m N.BufferInfo)
+b_query :: MonadIO m => Buffer -> RequestT m (Resource m N.BufferInfo)
 b_query (Buffer bid) = do
     send (C.b_query [fromIntegral bid])
     after (N.b_info bid) (return ())

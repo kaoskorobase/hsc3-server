@@ -29,7 +29,7 @@ main = run $ do
     immediately !> dumpOSC TextPrinter
     r <- rootNode
     synth <- extract =<< immediately !> do
-        async $ d_recv "hsc3-server:sine" sine `whenDone`
+        d_recv "hsc3-server:sine" sine `whenDone`
             \sd -> s_new sd AddToTail r [("freq", 440), ("amp", 0.2)]
     fork statusLoop
     pauseThread 10

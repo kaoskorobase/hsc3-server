@@ -19,8 +19,8 @@
 module Sound.SC3.Server.Monad.Request
   ( RequestT
   , AllocT
-  -- * Deferred values
-  , Deferred
+  -- * Resources
+  , Resource
   , extract
   , after
   , after_
@@ -36,6 +36,7 @@ module Sound.SC3.Server.Monad.Request
   -- * Command execution
   , runRequestT
   , exec
+  , exec'
   , (!>)
   {-, execPure-}
   {-, (~>)-}
@@ -61,7 +62,7 @@ import           Sound.OpenSoundControl (OSC(..), Time, immediately)
 goals:
 
 * after executing action and synchronizing, all server actions have been executed
-* server actions are consistent, i.e. asynchronous resources are not used before they are allocated (Deferred)
+* server actions are consistent, i.e. asynchronous resources are not used before they are allocated (Resource)
 
 async sets sync state to "needs sync"
 whenDone overrides sync state to "has sync"
@@ -103,7 +104,7 @@ getOSC = reverse . buildOSC
 
 -- | Representation of a server-side action (or sequence of actions).
 newtype RequestT m a = RequestT (StateT (State m) (ServerT m) a)
-                    deriving (Applicative, Functor, Monad)
+                        deriving (Applicative, Functor, Monad)
 
 instance Monad m => MonadServer (RequestT m) where
     serverOptions = liftServer M.serverOptions
@@ -149,28 +150,28 @@ newtype AllocT m a = AllocT (ServerT m a)
 
 -- | Representation of a deferred server resource.
 --
--- Deferred resource values can only be observed with 'extract' after the
+-- Resource resource values can only be observed with 'extract' after the
 -- surrounding 'RequestT' action has been executed with 'exec'.
-newtype Deferred m a = Deferred { extract :: ServerT m a -- ^ Extract result from deferred resource.
+newtype Resource m a = Resource { extract :: ServerT m a -- ^ Extract result from deferred resource.
                                 }
                        deriving (Applicative, Functor, Monad)
 
 -- | Register a cleanup action that is executed after the notification has been
 -- received and return the deferred notification result.
-after :: MonadIO m => Notification a -> AllocT m () -> RequestT m (Deferred m a)
+after :: MonadIO m => Notification a -> AllocT m () -> RequestT m (Resource m a)
 after n (AllocT m) = do
     v <- liftServer $ liftIO $ newIORef (error "BUG: after: uninitialized IORef")
     modify $ \s -> s { notifications = fmap (liftIO . writeIORef v) n : notifications s
                      , cleanup = cleanup s >> m }
-    return $ Deferred $ liftIO $ readIORef v
+    return $ Resource $ liftIO $ readIORef v
 
 -- | Register a cleanup action, to be executed after a notification has been
 -- received and ignore the notification result.
-after_ :: Monad m => Notification a -> AllocT m () -> RequestT m (Deferred m ())
+after_ :: Monad m => Notification a -> AllocT m () -> RequestT m (Resource m ())
 after_ n (AllocT m) = do
     modify $ \s -> s { notifications = fmap (const (return ())) n : notifications s
                      , cleanup = cleanup s >> m }
-    return $ Deferred $ return ()
+    return $ Resource $ return ()
 
 -- | Register a cleanup action that is executed after all asynchronous commands
 -- and notifications have been performed.
@@ -227,17 +228,18 @@ addSync m = do
 
 -- | Execute an server-side action after the asynchronous command has
 -- finished.
-whenDone :: MonadIO m => Async m a -> (a -> RequestT m b) -> Async m b
-whenDone (Async m) f = Async $ do
-    (a, g) <- m
-    b <- f a
-    return (b, g)
+{-whenDone :: MonadIO m => Async m a -> (a -> RequestT m (Resource m b)) -> Async m b-}
+{-whenDone (Async m) f = Async $ do-}
+    {-(a, g) <- m-}
+    {-b <- f a-}
+    {-return (b, g)-}
 
 -- | Execute an asynchronous command asynchronously.
-async :: MonadIO m => Async m a -> RequestT m (Deferred m a)
-async (Async m) = do
+whenDone :: MonadIO m => Async m a -> (a -> RequestT m (Resource m b)) -> RequestT m (Resource m b)
+whenDone (Async m) f = do
     t <- gets timeTag
-    ((a, g), s) <- liftServer $ runRequestT_ t NeedsSync $ addSync m
+    (a, g) <- m
+    (b, s) <- liftServer $ runRequestT_ t NeedsSync $ addSync $ f a
     case getOSC s of
         [] -> do
             send (g Nothing)
@@ -254,17 +256,17 @@ async (Async m) = do
                 syncState = max HasSync (syncState s')
               , notifications = notifications s' ++ notifications s
               , cleanup = cleanup s' >> cleanup s }
-    return $ return a
+    return b
 
 -- | Execute an asynchronous command asynchronously.
-{-async :: MonadIO m => Async m a -> RequestT m (Deferred m a)-}
-{-async = asyncM . flip whenDone (return . return)-}
+async :: (MonadIO m) => Async m a -> RequestT m (Resource m a)
+async = flip whenDone (return . return)
 
 {-
 -- | Execute an server-side action after the asynchronous command has
 -- finished. The corresponding server commands are scheduled at a time @t@ in
 -- the future.
-whenDone :: MonadIO m => Async m a -> (a -> RequestT m b) -> RequestT m (Deferred b)
+whenDone :: MonadIO m => Async m a -> (a -> RequestT m b) -> RequestT m (Resource b)
 whenDone (Async m) f = do
     t <- gets timeTag
     (a, g) <- m
@@ -280,7 +282,7 @@ whenDone (Async m) f = do
     return b
 
 -- | Execute an asynchronous command asynchronously.
-async :: MonadIO m => Async m a -> RequestT m (Deferred a)
+async :: MonadIO m => Async m a -> RequestT m (Resource a)
 async (Async m) = do
     (a, g) <- m
     send (g Nothing)
@@ -318,6 +320,9 @@ exec t m = do
         Nothing -> return ()
         Just (osc, ns) -> M.waitForAll osc ns >>= sequence_
     result
+
+exec' :: MonadIO m => Time -> RequestT m (Resource m a) -> ServerT m a
+exec' t m = exec t m >>= extract
 
 -- | Infix operator version of 'exec'.
 (!>) :: MonadIO m => Time -> RequestT m a -> ServerT m a
