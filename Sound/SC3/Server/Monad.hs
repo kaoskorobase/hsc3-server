@@ -48,9 +48,9 @@ import           Control.Monad (MonadPlus, liftM)
 import           Control.Monad.Base (MonadBase(..), liftBaseDefault)
 import           Control.Monad.Fix (MonadFix)
 import           Control.Monad.IO.Class (MonadIO, liftIO)
-import           Control.Monad.Trans.Resource (MonadThrow)
 import           Control.Monad.Trans.Reader (ReaderT(..))
 import qualified Control.Monad.Trans.Reader as R
+import           Control.Monad.Trans.Resource (MonadResource, MonadThrow)
 import           Control.Monad.Trans.Class (MonadTrans(..))
 import           Control.Monad.Trans.Control
 import           Sound.OpenSoundControl (Datum(..), OSC(..), immediately)
@@ -79,7 +79,7 @@ data State = State {
   }
 
 newtype ServerT m a = ServerT { unServerT :: ReaderT State m a }
-    deriving (Alternative, Applicative, Functor, Monad, MonadFix, MonadIO, MonadPlus, MonadThrow, MonadTrans)
+    deriving (Alternative, Applicative, Functor, Monad, MonadFix, MonadIO, MonadPlus, MonadResource, MonadThrow, MonadTrans)
 
 type Server = ServerT IO
 
