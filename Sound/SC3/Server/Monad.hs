@@ -48,8 +48,9 @@ import           Control.Monad (MonadPlus, liftM)
 import           Control.Monad.Base (MonadBase(..), liftBaseDefault)
 import           Control.Monad.Fix (MonadFix)
 import           Control.Monad.IO.Class (MonadIO, liftIO)
-import           Control.Monad.Trans.Reader (ReaderT(..), asks)
 import           Control.Monad.Trans.Resource (MonadThrow)
+import           Control.Monad.Trans.Reader (ReaderT(..))
+import qualified Control.Monad.Trans.Reader as R
 import           Control.Monad.Trans.Class (MonadTrans(..))
 import           Control.Monad.Trans.Control
 import           Sound.OpenSoundControl (Datum(..), OSC(..), immediately)
@@ -148,7 +149,7 @@ serverOption = flip liftM serverOptions
 
 -- serverOptions :: MonadIO m => ServerT m ServerOptions
 instance Monad m => MonadServer (ServerT m) where
-    serverOptions = ServerT $ asks _serverOptions
+    serverOptions = ServerT $ R.asks _serverOptions
 
 -- | Monadic resource id management interface.
 class Monad m => MonadIdAllocator m where
@@ -175,7 +176,7 @@ class Monad m => MonadIdAllocator m where
 
 withAllocator :: (IdAllocator a, NFData a, MonadIO m) => (a -> IO (b, a)) -> Allocator a -> ServerT m b
 withAllocator f (Allocator a) = ServerT $ do
-    mv <- asks a
+    mv <- R.asks a
     liftIO $ modifyMVar mv $ \s -> do
         (i, s') <- f s
         return $! (s', i)
@@ -196,7 +197,7 @@ class Monad m => MonadSendOSC m where
     send :: OSC -> m ()
 
 withConnection :: MonadIO m => (Connection -> IO a) -> ServerT m a
-withConnection f = ServerT $ asks _connection >>= \c -> liftIO (f c)
+withConnection f = ServerT $ R.asks _connection >>= \c -> liftIO (f c)
 
 instance MonadIO m => MonadSendOSC (ServerT m) where
     send osc = withConnection $ \c -> C.send c osc
