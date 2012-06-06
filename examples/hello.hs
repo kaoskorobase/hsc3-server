@@ -5,7 +5,7 @@ import           Sound.SC3.Server.Monad.Command
 -- You need the hsc3-server-internal package in order to use the internal server
 --import           Sound.SC3.Server.Monad.Process.Internal (withDefaultInternal)
 import           Sound.SC3.Server.Monad.Process (withDefaultSynth)
-import           Sound.SC3.Server.Monad.Request ((!>), async, extract, whenDone)
+import           Sound.SC3.Server.Monad.Request ((!>), async, extract, resource, whenDone)
 import           Sound.SC3.Server.Notification
 import           Sound.OpenSoundControl (immediately)
 import qualified Sound.OpenSoundControl as OSC
@@ -33,7 +33,7 @@ main = run $ do
     r <- rootNode
     synth <- extract =<< immediately !> do
         d_recv "hsc3-server:sine" sine `whenDone`
-            \sd -> s_new sd AddToTail r [("freq", 440), ("amp", 0.2)]
+            \sd -> resource =<< s_new sd AddToTail r [("freq", 440), ("amp", 0.2)]
     fork statusLoop
     pauseThread 10
     immediately !> s_release 0 synth

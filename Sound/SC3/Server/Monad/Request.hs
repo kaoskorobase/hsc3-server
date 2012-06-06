@@ -21,6 +21,7 @@ module Sound.SC3.Server.Monad.Request
   , AllocT
   -- * Resources
   , Resource
+  , resource
   , extract
   , after
   , after_
@@ -155,6 +156,10 @@ newtype AllocT m a = AllocT (ServerT m a)
 newtype Resource m a = Resource { extract :: ServerT m a -- ^ Extract result from deferred resource.
                                 }
                        deriving (Applicative, Functor, Monad)
+
+-- | Return a pure value as a 'Resource' in the 'RequestT' monad transformer.
+resource :: Monad m => a -> RequestT m (Resource m a)
+resource = return . return
 
 -- | Register a cleanup action that is executed after the notification has been
 -- received and return the deferred notification result.
