@@ -78,6 +78,7 @@ import           Control.Arrow (first)
 import           Control.Failure (Failure, failure)
 import           Control.Monad (liftM)
 import           Control.Monad.IO.Class (MonadIO)
+import           Sound.OpenSoundControl (OSC(..))
 import           Sound.SC3 (Rate(..), UGen)
 import qualified Sound.SC3.Server.Allocator.Range as Range
 import           Sound.SC3.Server.Monad hiding (sync, unsafeSync)
@@ -89,8 +90,7 @@ import           Sound.SC3.Server.Command (AddAction(..), PrintLevel(..))
 import qualified Sound.SC3.Server.Command as C
 import qualified Sound.SC3.Server.Command.Completion as C
 import qualified Sound.SC3.Server.Notification as N
-import           Sound.SC3.Server.Options (ServerOptions(..))
-import           Sound.OpenSoundControl (OSC(..))
+import           Sound.SC3.Server.Process.Options (ServerOptions(..))
 
 -- ====================================================================
 -- Utils

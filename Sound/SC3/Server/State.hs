@@ -33,7 +33,7 @@ import qualified Sound.SC3.Server.Allocator.BlockAllocator.FirstFit as FirstFitA
 import qualified Sound.SC3.Server.Allocator.SetAllocator as SetAllocator
 import qualified Sound.SC3.Server.Allocator.SimpleAllocator as SimpleAllocator
 import qualified Sound.SC3.Server.Allocator.Wrapped as Wrapped
-import           Sound.SC3.Server.Options (ServerOptions(..))
+import           Sound.SC3.Server.Process.Options (ServerOptions(..))
 
 -- | Synchronisation barrier id.
 newtype SyncId = SyncId Int32 deriving (Bounded, Enum, Eq, Integral, NFData, Num, Ord, Real, Show)

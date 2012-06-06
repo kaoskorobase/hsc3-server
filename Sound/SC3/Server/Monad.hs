@@ -60,7 +60,7 @@ import           Sound.SC3.Server.Command (notify)
 import           Sound.SC3.Server.Connection (Connection)
 import qualified Sound.SC3.Server.Connection as C
 import           Sound.SC3.Server.Notification (Notification, synced)
-import           Sound.SC3.Server.Options (ServerOptions)
+import           Sound.SC3.Server.Process.Options (ServerOptions)
 import           Sound.SC3.Server.State ( BufferId, BufferIdAllocator 
                                         , BusId, BusIdAllocator
                                         , NodeId, NodeIdAllocator

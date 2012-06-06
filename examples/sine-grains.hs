@@ -1,10 +1,12 @@
 import           Control.Concurrent.MVar
 import           Control.Monad (void, when)
 import           Control.Monad.IO.Class (MonadIO, liftIO)
-import           Sound.SC3.Server.Process.Monad
 import           Sound.SC3.UGen
 import           Sound.SC3.Server.Monad
 import           Sound.SC3.Server.Monad.Command
+-- You need the hsc3-server-internal package in order to use the internal server
+--import           Sound.SC3.Server.Monad.Process.Internal (withDefaultInternal)
+import           Sound.SC3.Server.Monad.Process (withDefaultSynth)
 import           Sound.SC3.Server.Monad.Request
 import           Sound.SC3.Server.Notification
 import           Sound.OpenSoundControl (immediately)
@@ -43,8 +45,9 @@ grainLoop quit synthDef delta sustain t = do
     b <- keepRunning quit
     when b $ grainLoop quit synthDef delta sustain t'
 
-{-run = withDefaultSynth-}
-run = withDefaultInternal
+-- You need the hsc3-server-internal package in order to use the internal server
+--run = withDefaultInternal
+run = withDefaultSynth
 
 latency = 0.03
  

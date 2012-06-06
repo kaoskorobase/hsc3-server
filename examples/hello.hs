@@ -1,8 +1,10 @@
 import           Control.Monad.IO.Class (liftIO)
-import           Sound.SC3.Server.Process.Monad
 import           Sound.SC3.UGen
 import           Sound.SC3.Server.Monad
 import           Sound.SC3.Server.Monad.Command
+-- You need the hsc3-server-internal package in order to use the internal server
+--import           Sound.SC3.Server.Monad.Process.Internal (withDefaultInternal)
+import           Sound.SC3.Server.Monad.Process (withDefaultSynth)
 import           Sound.SC3.Server.Monad.Request ((!>), async, extract, whenDone)
 import           Sound.SC3.Server.Notification
 import           Sound.OpenSoundControl (immediately)
@@ -20,8 +22,9 @@ statusLoop = do
     pauseThread 1
     statusLoop
 
---run = withDefaultSynth
-run = withDefaultInternal
+-- You need the hsc3-server-internal package in order to use the internal server
+--run = withDefaultInternal
+run = withDefaultSynth
 
 latency = 0.03
  
