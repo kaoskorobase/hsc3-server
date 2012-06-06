@@ -20,9 +20,6 @@ Tested-With:        GHC == 6.10, GHC == 6.12, GHC == 7.0, GHC == 7.2
 Build-Type:         Simple
 Cabal-Version:      >= 1.9.2
 
---Extra-Source-Files:
-    --include/Accessor.h
-
 Library
     Exposed-Modules:
         Sound.SC3.Server.Allocator
@@ -45,22 +42,20 @@ Library
         Sound.SC3.Server.Allocator.BlockAllocator.FreeList        
     Build-Depends:
         base >= 3 && < 5
-      , bitset >= 1.0
-      , containers
+      , bitset >= 1.0 && < 1.2
+      , containers >= 0.2 && < 0.6
       --, data-accessor >= 0.2
-      , deepseq >= 1.1
-      , failure >= 0.1
-      , hosc >= 0.8
-      , hsc3 >= 0.11
-      , hsc3-process >= 0.6
-      , lifted-base >= 0.1
-      , monad-control >= 0.3
-      , resourcet >= 0.3
-      , strict-concurrency
-      , transformers >= 0.2
-      , transformers-base >= 0.4
-    --Include-Dirs:
-        --include
+      , deepseq >= 1.1 && < 1.4
+      , failure >= 0.2 && < 0.3
+      , hosc >= 0.8 && < 0.12
+      , hsc3 >= 0.11 && < 0.12
+      , hsc3-process >= 0.7 && < 0.8
+      , lifted-base >= 0.1 && < 0.2
+      , monad-control >= 0.3 && < 0.4
+      , resourcet >= 0.3 && < 0.4
+      , strict-concurrency >= 0.2 && < 0.3
+      , transformers >= 0.2 && < 0.4
+      , transformers-base >= 0.4 && < 0.5
     Ghc-Options:
         -W
     Ghc-Prof-Options:
@@ -70,6 +65,60 @@ Source-Repository head
     Type:       git
     Location:   git://github.com/kaoskorobase/hsc3-server.git
 
+Flag build-examples
+    Description:    Build example programs
+    Default:        False
+
+Executable hsc3-hello
+    Main-Is: examples/hello.hs
+    if flag(build-examples)
+        Buildable: True
+    else
+        Buildable: False
+    Build-Depends:
+        base >= 3 && < 5
+      , bitset >= 1.0 && < 1.2
+      , containers >= 0.2 && < 0.6
+      , deepseq >= 1.1 && < 1.4
+      , failure >= 0.2 && < 0.3
+      , hosc >= 0.8 && < 0.12
+      , hsc3 >= 0.11 && < 0.12
+      , hsc3-process >= 0.7 && < 0.8
+      , lifted-base >= 0.1 && < 0.2
+      , monad-control >= 0.3 && < 0.4
+      , resourcet >= 0.3 && < 0.4
+      , strict-concurrency >= 0.2 && < 0.3
+      , transformers >= 0.2 && < 0.4
+      , transformers-base >= 0.4 && < 0.5
+    Ghc-Options:
+        -rtsopts -threaded
+
+Executable hsc3-sine-grains
+    Main-Is: examples/sine-grains.hs
+    if flag(build-examples)
+        Buildable: True
+    else
+        Buildable: False
+    Build-Depends:
+        base >= 3 && < 5
+      , bitset >= 1.0 && < 1.2
+      , containers >= 0.2 && < 0.6
+      , deepseq >= 1.1 && < 1.4
+      , failure >= 0.2 && < 0.3
+      , hosc >= 0.8 && < 0.12
+      , hsc3 >= 0.11 && < 0.12
+      , hsc3-process >= 0.7 && < 0.8
+      , lifted-base >= 0.1 && < 0.2
+      , monad-control >= 0.3 && < 0.4
+      , random >= 1.0 && < 1.1
+      , resourcet >= 0.3 && < 0.4
+      , strict-concurrency >= 0.2 && < 0.3
+      , transformers >= 0.2 && < 0.4
+      , transformers-base >= 0.4 && < 0.5
+      , unix >= 2.5 && < 2.6
+    Ghc-Options:
+        -rtsopts -threaded
+
 Test-Suite hsc3-server-test
     Type: exitcode-stdio-1.0
     Main-Is: test.hs
@@ -77,7 +126,7 @@ Test-Suite hsc3-server-test
         Sound.SC3.Server.Allocator.Test
         Sound.SC3.Server.Allocator.Range.Test
     Build-Depends:
-        base
+        base >= 3 && < 5
       , bitset >= 1.0
       , deepseq >= 1.1
       , failure >= 0.1
