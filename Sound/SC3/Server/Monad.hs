@@ -8,6 +8,7 @@ module Sound.SC3.Server.Monad
   ( -- * Server Monad
     ServerT
   , runServerT
+  , capture
   , Server
   , runServer
   -- * Server options
@@ -138,6 +139,12 @@ runServerT (ServerT r) so c = do
 -- | Run a 'Server' computation given a connection and return the result in the IO monad.
 runServer :: Server a -> ServerOptions -> Connection -> IO a
 runServer = runServerT
+
+-- | Capture server state for later execution.
+capture :: Monad m => ServerT m (ServerT m a -> m a)
+capture = ServerT $ do
+    s <- R.ask
+    return $ \(ServerT m) -> R.runReaderT m s
 
 class Monad m => MonadServer m where
     -- | Return the server options.
