@@ -20,6 +20,10 @@ Tested-With:        GHC == 6.10, GHC == 6.12, GHC == 7.0, GHC == 7.2
 Build-Type:         Simple
 Cabal-Version:      >= 1.9.2
 
+Flag build-examples
+    Description:    Build example programs
+    Default:        False
+
 Library
     Exposed-Modules:
         Sound.SC3.Server.Allocator
@@ -64,10 +68,6 @@ Library
 Source-Repository head
     Type:       git
     Location:   git://github.com/kaoskorobase/hsc3-server.git
-
-Flag build-examples
-    Description:    Build example programs
-    Default:        False
 
 Executable hsc3-hello
     Main-Is: examples/hello.hs
