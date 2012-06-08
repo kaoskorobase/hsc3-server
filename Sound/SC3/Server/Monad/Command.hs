@@ -76,7 +76,7 @@ module Sound.SC3.Server.Monad.Command
 --import qualified Codec.Digest.SHA as SHA
 import           Control.Arrow (first)
 import           Control.Failure (Failure, failure)
-import           Control.Monad (liftM)
+import           Control.Monad (liftM, unless)
 import           Control.Monad.IO.Class (MonadIO)
 import           Sound.OpenSoundControl (OSC(..))
 import           Sound.SC3 (Rate(..), UGen)
@@ -422,7 +422,7 @@ b_query (Buffer bid) = do
 class Bus a where
     rate :: a -> Rate
     busIdRange :: a -> Range BusId
-    freeBus :: MonadIdAllocator m => a -> m ()
+    freeBus :: (MonadServer m, MonadIdAllocator m) => a -> m ()
 
 -- | Bus id.
 busId :: Bus a => a -> BusId
@@ -438,11 +438,20 @@ newtype AudioBus = AudioBus { audioBusId :: Range BusId } deriving (Eq, Show)
 instance Bus AudioBus where
     rate _ = AR
     busIdRange = audioBusId
-    freeBus = M.freeRange M.audioBusIdAllocator . audioBusId
+    freeBus b = do
+        hw <- isHardwareBus b
+        unless hw $ M.freeRange M.audioBusIdAllocator (audioBusId b)
 
 -- | Allocate audio bus with the specified number of channels.
 newAudioBus :: MonadIdAllocator m => Int -> m AudioBus
 newAudioBus = liftM AudioBus . M.allocRange M.audioBusIdAllocator
+
+-- | Return 'True' if bus is a hardware output or input bus.
+isHardwareBus :: MonadServer m => AudioBus -> m Bool
+isHardwareBus b = do
+    no <- serverOption numberOfOutputBusChannels
+    ni <- serverOption numberOfInputBusChannels
+    return $ busId b >= 0 && busId b < fromIntegral (no + ni)
 
 -- | Get hardware input bus.
 inputBus :: (MonadServer m, Failure AllocFailure m) => Int -> Int -> m AudioBus
