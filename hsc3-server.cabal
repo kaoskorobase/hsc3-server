@@ -39,11 +39,11 @@ Library
         Sound.SC3.Server.Monad
         Sound.SC3.Server.Monad.Command
         Sound.SC3.Server.Monad.Process
-        Sound.SC3.Server.Monad.Request
         Sound.SC3.Server.Notification
         Sound.SC3.Server.State
     Other-Modules:
         Sound.SC3.Server.Allocator.BlockAllocator.FreeList        
+        Sound.SC3.Server.Monad.Request
     Build-Depends:
         base >= 3 && < 5
       , bitset >= 1.0 && < 1.2

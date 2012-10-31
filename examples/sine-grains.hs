@@ -7,7 +7,6 @@ import           Sound.SC3.Server.Monad.Command
 -- You need the hsc3-server-internal package in order to use the internal server
 --import           Sound.SC3.Server.Monad.Process.Internal (withDefaultInternal)
 import           Sound.SC3.Server.Monad.Process (withDefaultSynth)
-import           Sound.SC3.Server.Monad.Request
 import           Sound.SC3.Server.Notification
 import           Sound.OpenSoundControl (immediately)
 import qualified Sound.OpenSoundControl as OSC
@@ -24,7 +23,7 @@ pauseThread = liftIO . OSC.pauseThread
 pauseThreadUntil = liftIO . OSC.pauseThreadUntil
 
 statusLoop = do
-    immediately !> status >>= extract >>= liftIO . print
+    statusM >>= liftIO . print
     pauseThread 1
     statusLoop
 
@@ -34,11 +33,11 @@ grainLoop quit synthDef delta sustain t = do
     f <- liftIO $ randomRIO (100,800)
     a <- liftIO $ randomRIO (0.1,0.3)
     r <- rootNode
-    synth <- OSC.UTCr (t + latency) !> s_new synthDef AddToTail r [("freq", f), ("amp", a)]
+    synth <- OSC.UTCr (t + latency) `exec` s_new synthDef AddToTail r [("freq", f), ("amp", a)]
     fork $ do
         let t' = t + sustain
         pauseThreadUntil t'
-        OSC.UTCr (t' + latency) !> s_release 0 synth
+        OSC.UTCr (t' + latency) `exec` s_release 0 synth
         return ()
     let t' = t + delta
     pauseThreadUntil t'
@@ -63,7 +62,7 @@ main :: IO ()
 main = do
     quit <- newBreakHandler
     run $ do
-        sd <- immediately !> async (d_recv "hsc3-server:sine" sine) >>= extract
+        sd <- exec_ $ d_recv "hsc3-server:sine" sine
         fork statusLoop
         grainLoop quit sd 0.03 0.06 =<< liftIO OSC.utcr
     takeMVar quit

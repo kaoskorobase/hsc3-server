@@ -5,8 +5,15 @@
            , MultiParamTypeClasses #-}
 module Sound.SC3.Server.Monad.Command
   (
+  -- * Requests
+    RequestT
+  , R.exec
+  , R.exec_
+  , Value
+  , R.value
   -- * Master controls
-    status
+  , status
+  , statusM
   , PrintLevel(..)
   , dumpOSC
   -- * Synth definitions
@@ -29,6 +36,7 @@ module Sound.SC3.Server.Monad.Command
   , BusMapping(..)
   , n_query_
   , n_query
+  , n_queryM
   , n_run_
   , n_set
   , n_setn
@@ -60,6 +68,7 @@ module Sound.SC3.Server.Monad.Command
   , b_free
   , b_zero
   , b_query
+  , b_queryM
   -- ** Buses
   , Bus(..)
   , busId
@@ -81,9 +90,10 @@ import           Control.Monad.IO.Class (MonadIO)
 import           Sound.OpenSoundControl (OSC(..))
 import           Sound.SC3 (Rate(..), UGen)
 import qualified Sound.SC3.Server.Allocator.Range as Range
-import           Sound.SC3.Server.Monad hiding (sync, unsafeSync)
+import           Sound.SC3.Server.Monad (BufferId, BusId, MonadIdAllocator, MonadRecvOSC, MonadServer, NodeId, Range, send, serverOption)
 import qualified Sound.SC3.Server.Monad as M
-import           Sound.SC3.Server.Monad.Request
+import           Sound.SC3.Server.Monad.Request (RequestT, Value, after, after_, finally, mkAsync, mkAsync_, mkSync)
+import qualified Sound.SC3.Server.Monad.Request as R
 import qualified Sound.SC3.Server.Synthdef as Synthdef
 import           Sound.SC3.Server.Allocator (AllocFailure(..))
 import           Sound.SC3.Server.Command (AddAction(..), PrintLevel(..))
@@ -100,18 +110,22 @@ mkC :: a -> (OSC -> a) -> (Maybe OSC -> a)
 mkC f _ Nothing    = f
 mkC _ f (Just osc) = f osc
 
+get :: (MonadIdAllocator m, MonadRecvOSC m, MonadIO m) => RequestT m (Value a) -> m a
+get m = R.exec_ m >>= R.value
+
 -- ====================================================================
 -- Master controls
 
-status :: MonadIO m => RequestT m (Resource m N.Status)
+status :: MonadIO m => RequestT m (Value N.Status)
 status = send C.status >> after N.status_reply (return ())
 
-dumpOSC :: MonadIO m => PrintLevel -> RequestT m (Resource m ())
+statusM :: (MonadIdAllocator m, MonadRecvOSC m, MonadIO m) => m N.Status
+statusM = get status
+
+dumpOSC :: MonadIdAllocator m => PrintLevel -> RequestT m ()
 dumpOSC p = do
-    i <- M.alloc M.syncIdAllocator
     send (C.dumpOSC p)
-    send (C.sync (fromIntegral i))
-    after_ (N.synced i) (return ())
+    send =<< mkSync
 
 -- ====================================================================
 -- Synth definitions
@@ -138,7 +152,7 @@ d_default = d_named "default"
 --     where
 --         sd = SynthDef (prefix ++ "-" ++ graphName ugen)
 --         f osc = (mkC C.d_recv C.d_recv' osc) (Synthdef.synthdef (name sd) ugen)
-d_recv :: Monad m => String -> UGen -> Async m SynthDef
+d_recv :: Monad m => String -> UGen -> RequestT m SynthDef
 d_recv name ugen
     | length name < 255 = mkAsync $ return (SynthDef name, f)
     | otherwise = error "d_recv: name too long, resulting string exceeds 255 characters"
@@ -182,7 +196,7 @@ n_fill :: (Node a, Monad m) => a -> [(String, Int, Double)] -> RequestT m ()
 n_fill n = send . C.n_fill (fromIntegral (nodeId n))
 
 -- | Delete a node.
-n_free :: (Node a, MonadIO m) => a -> RequestT m ()
+n_free :: (Node a, MonadIdAllocator m) => a -> RequestT m ()
 n_free n = do
     send $ C.n_free [fromIntegral (nodeId n)]
     finally $ M.free M.nodeIdAllocator (nodeId n)
@@ -229,8 +243,11 @@ n_query_ :: (Node a, Monad m) => a -> RequestT m ()
 n_query_ n = send $ C.n_query [fromIntegral (nodeId n)]
 
 -- | Query a node.
-n_query :: (Node a, MonadIO m) => a -> RequestT m (Resource m N.NodeNotification)
+n_query :: (Node a, MonadIO m) => a -> RequestT m (Value N.NodeNotification)
 n_query n = n_query_ n >> after (N.n_info (nodeId n)) (return ())
+
+n_queryM :: (Node a, MonadIdAllocator m, MonadRecvOSC m, MonadIO m) => a -> m N.NodeNotification
+n_queryM = get . n_query
 
 -- | Turn node on or off.
 n_run_ :: (Node a, Monad m) => a -> Bool -> RequestT m ()
@@ -260,16 +277,16 @@ newtype Synth = Synth NodeId deriving (Eq, Ord, Show)
 instance Node Synth where
     nodeId (Synth nid) = nid
 
-s_new :: MonadIO m => SynthDef -> AddAction -> Group -> [(String, Double)] -> RequestT m Synth
+s_new :: MonadIdAllocator m => SynthDef -> AddAction -> Group -> [(String, Double)] -> RequestT m Synth
 s_new d a g xs = do
     nid <- M.alloc M.nodeIdAllocator
     send $ C.s_new (name d) (fromIntegral nid) a (fromIntegral (nodeId g)) xs
     return $ Synth nid
 
-s_new_ :: MonadIO m => SynthDef -> AddAction -> [(String, Double)] -> RequestT m Synth
+s_new_ :: MonadIdAllocator m => SynthDef -> AddAction -> [(String, Double)] -> RequestT m Synth
 s_new_ d a xs = rootNode >>= \g -> s_new d a g xs
 
-s_release :: (Node a, MonadIO m) => Double -> a -> RequestT m (Resource m ())
+s_release :: (Node a, MonadIdAllocator m) => Double -> a -> RequestT m ()
 s_release r n = do
     send (C.n_set1 (fromIntegral nid) "gate" r)
     after_ (N.n_end_ nid) (M.free M.nodeIdAllocator nid)
@@ -286,13 +303,13 @@ instance Node Group where
 rootNode :: MonadIdAllocator m => m Group
 rootNode = liftM Group M.rootNodeId
 
-g_new :: MonadIO m => AddAction -> Group -> RequestT m Group
+g_new :: MonadIdAllocator m => AddAction -> Group -> RequestT m Group
 g_new a p = do
     nid <- M.alloc M.nodeIdAllocator
     send $ C.g_new [(fromIntegral nid, a, fromIntegral (nodeId p))]
     return $ Group nid
 
-g_new_ :: MonadIO m => AddAction -> RequestT m Group
+g_new_ :: MonadIdAllocator m => AddAction -> RequestT m Group
 g_new_ a = rootNode >>= g_new a
 
 g_deepFree :: Monad m => Group -> RequestT m ()
@@ -315,7 +332,7 @@ g_dumpTree = send . C.g_dumpTree . map (first (fromIntegral . nodeId))
 
 newtype Buffer = Buffer { bufferId :: BufferId } deriving (Eq, Ord, Show)
 
-b_alloc :: MonadIO m => Int -> Int -> Async m Buffer
+b_alloc :: MonadIdAllocator m => Int -> Int -> RequestT m Buffer
 b_alloc n c = mkAsync $ do
     bid <- M.alloc M.bufferIdAllocator
     let f osc = (mkC C.b_alloc C.b_alloc' osc) (fromIntegral bid) n c
@@ -328,7 +345,7 @@ b_read :: MonadIO m =>
  -> Maybe Int
  -> Maybe Int
  -> Bool
- -> Async m ()
+ -> RequestT m ()
 b_read (Buffer bid) path
        fileOffset numFrames bufferOffset
        leaveOpen = mkAsync_ f
@@ -384,7 +401,7 @@ b_write :: MonadIO m =>
  -> Maybe Int
  -> Maybe Int
  -> Bool
- -> Async m ()
+ -> RequestT m ()
 b_write (Buffer bid) path
         headerFormat sampleFormat
         fileOffset numFrames
@@ -398,22 +415,25 @@ b_write (Buffer bid) path
                     (maybe (-1) id numFrames)
                     leaveOpen
 
-b_free :: MonadIO m => Buffer -> Async m ()
+b_free :: MonadIdAllocator m => Buffer -> RequestT m ()
 b_free b = mkAsync $ do
     let bid = bufferId b
     M.free M.bufferIdAllocator bid
     let f osc = (mkC C.b_free C.b_free' osc) (fromIntegral bid)
     return ((), f)
 
-b_zero :: MonadIO m => Buffer -> Async m ()
+b_zero :: MonadIO m => Buffer -> RequestT m ()
 b_zero (Buffer bid) = mkAsync_ f
     where
         f osc = (mkC C.b_zero C.b_zero' osc) (fromIntegral bid)
 
-b_query :: MonadIO m => Buffer -> RequestT m (Resource m N.BufferInfo)
+b_query :: MonadIO m => Buffer -> RequestT m (Value N.BufferInfo)
 b_query (Buffer bid) = do
     send (C.b_query [fromIntegral bid])
     after (N.b_info bid) (return ())
+
+b_queryM :: (MonadIdAllocator m, MonadRecvOSC m, MonadIO m) => Buffer -> m N.BufferInfo
+b_queryM = get . b_query
 
 -- ====================================================================
 -- Bus

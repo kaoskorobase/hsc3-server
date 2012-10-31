@@ -1,133 +1,87 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving
-           , MultiParamTypeClasses #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+module Sound.SC3.Server.Monad.Request (
+  RequestT
+, exec
+, exec_
+, Value
+, value
+, AllocT
+, after
+, after_
+, finally
+, mkAsync
+, mkAsync_
+, mkSync
+) where
 
--- | This module provides abstractions for constructing bundles for server
--- resource allocation in a type safe manner. In particular, the exposed types
--- and functions make sure that asynchronous command results cannot be used
--- before they have been allocated on the server.
---
--- TODO: Real usage example
---
--- > (b0, (g, ig, b)) <- immediately !> do
--- > b0 <- async $ b_alloc 1024 1
--- > x <- b_alloc 1024 1 `whenDone` immediately $ \b -> do
--- >     b_free b `whenDone` OSC.UTCr t' $ \() -> do
--- >         g <- g_new_ AddToTail
--- >         ig <- g_new AddToTail g
--- >         return $ pure (g, ig, b)
--- > return $ (,) <$> b0 <*> x
-module Sound.SC3.Server.Monad.Request
-  ( RequestT
-  , AllocT
-  -- * Resources
-  , Resource
-  , resource
-  , extract
-  , after
-  , after_
-  , finally
-  -- * Asynchronous commands
-  , Async
-  , mkAsync
-  , mkAsync_
-  , mkAsyncCM
-  , whenDone
-  {-, asyncM-}
-  , async
-  -- * Command execution
-  , runRequestT
-  , exec
-  , exec'
-  , (!>)
-  {-, execPure-}
-  {-, (~>)-}
-  ) where
-
-import           Control.Applicative
-import           Control.Arrow (second)
-import           Control.Monad (liftM, when)
+import           Control.Applicative (Applicative)
 import           Control.Monad.IO.Class (MonadIO(..))
 import qualified Control.Monad.Trans.Class as Trans
-import           Control.Monad.Trans.State (StateT(..))
 import qualified Control.Monad.Trans.State as State
 import           Data.IORef
-import           Sound.SC3.Server.Monad (MonadIdAllocator, MonadSendOSC(..), MonadServer, ServerT)
-import qualified Sound.SC3.Server.Monad as M
 import qualified Sound.SC3.Server.Command as C
+import           Sound.SC3.Server.Monad (MonadIdAllocator, MonadRecvOSC, MonadSendOSC, MonadServer)
+import qualified Sound.SC3.Server.Monad as M
 import           Sound.SC3.Server.Notification (Notification)
 import qualified Sound.SC3.Server.Notification as N
 import           Sound.OpenSoundControl (OSC(..), Time, immediately)
 
-{-
+data Request =
+    Sync OSC
+  | Async (Maybe OSC -> OSC)
 
-goals:
-
-* after executing action and synchronizing, all server actions have been executed
-* server actions are consistent, i.e. asynchronous resources are not used before they are allocated (Resource)
-
-async sets sync state to "needs sync"
-whenDone overrides sync state to "has sync"
-whenDone adds a sync barrier to the completion packet when its subaction didn't add one (syncIds empty); the subaction always needs to sync!
-exec adds a sync barrier when sync state is "needs sync"
--}
-
--- | Synchronisation state.
-data SyncState =
-    NoSync      -- ^ No synchronisation barrier needed.
-  | NeedsSync   -- ^ Need to add a synchronisation barrier to the current context.
-  | HasSync     -- ^ Synchronisation barrier already present in the current context.
-  deriving (Eq, Ord, Show)
+compile :: Time -> [Request] -> OSC
+compile t rs = go t rs []
+  where
+    go t [] ps = Bundle t ps
+    go t (r:rs) ps =
+      case r of
+        Sync osc -> go t rs (osc : ps)
+        Async f  -> case ps of
+                      [] -> let ps' = [f Nothing]
+                            in go t rs ps'
+                      _  -> let ps' = [f (Just (Bundle t ps))]
+                            in go immediately rs ps'
 
 -- | Internal state used for constructing bundles from 'RequestT' actions.
 data State m = State {
-    buildOSC      :: [OSC]                         -- ^ Current list of OSC messages.
-  , notifications :: [Notification (ServerT m ())] -- ^ Current list of notifications to synchronise on.
-  , cleanup       :: ServerT m ()                  -- ^ Cleanup action to deallocate resources.
-  , timeTag       :: Time                          -- ^ Time tag.
-  , syncState     :: SyncState                     -- ^ Synchronisation barrier state.
+    requests      :: [Request]                     -- ^ Current list of OSC messages.
+  , notifications :: [Notification (m ())] -- ^ Current list of notifications to synchronise on.
+  , cleanup       :: m ()                  -- ^ Cleanup action to deallocate resources.
+  , needsSync     :: Bool
+  --, timeTag       :: Time                          -- ^ Time tag.
+  --, syncState     :: SyncState                     -- ^ Synchronisation barrier state.
   }
 
--- | Construct a 'RequestT' state with a given synchronisation state.
-mkState :: Monad m => Time -> SyncState -> State m
-mkState = State [] [] (return ())
-
--- | Push an OSC packet.
-pushOSC :: OSC -> State m -> State m
-pushOSC osc s = s { buildOSC = osc : buildOSC s }
-
--- | Return 'True' if the current context contains OSC messages.
-hasOSC :: State m -> Bool
-hasOSC = not . null . buildOSC
-
--- | Get the list of OSC packets.
-getOSC :: State m -> [OSC]
-getOSC = reverse . buildOSC
-
 -- | Representation of a server-side action (or sequence of actions).
-newtype RequestT m a = RequestT (StateT (State m) (ServerT m) a)
+newtype RequestT m a = RequestT (State.StateT (State m) m a)
                         deriving (Applicative, Functor, Monad)
 
-instance Monad m => MonadServer (RequestT m) where
-    serverOptions = liftServer M.serverOptions
+instance MonadServer m => MonadServer (RequestT m) where
+    serverOptions = lift M.serverOptions
 
-instance MonadIO m => MonadIdAllocator (RequestT m) where
-    rootNodeId = liftServer M.rootNodeId
-    alloc = liftServer . M.alloc
-    free a = liftServer . M.free a
-    allocMany a = liftServer . M.allocMany a
-    freeMany a = liftServer . M.freeMany a
-    allocRange a = liftServer . M.allocRange a
-    freeRange a = liftServer . M.freeRange a
+instance MonadIdAllocator m => MonadIdAllocator (RequestT m) where
+    rootNodeId = lift M.rootNodeId
+    alloc = lift . M.alloc
+    free a = lift . M.free a
+    allocMany a = lift . M.allocMany a
+    freeMany a = lift . M.freeMany a
+    allocRange a = lift . M.allocRange a
+    freeRange a = lift . M.freeRange a
 
 -- | Bundles are flattened into the resulting bundle because @scsynth@ doesn't
 -- support nested bundles.
 instance Monad m => MonadSendOSC (RequestT m) where
-    send osc@(Message _ _) = modify (pushOSC osc)
-    send (Bundle _ xs)     = mapM_ send xs
+    send osc@(Message _ _) = modify $ \s -> s { requests = Sync osc : requests s }
+    send (Bundle _ xs)     = mapM_ M.send xs
 
--- | Execute a RequestT action, returning the result and the final state.
-runRequestT_ :: Monad m => Time -> SyncState -> RequestT m a -> ServerT m (a, State m)
-runRequestT_ t s (RequestT m) = State.runStateT m (mkState t s)
+-- | Lift a ServerT action into RequestT.
+--
+-- This is potentially unsafe and should only be used for the allocation of
+-- server resources. Lifting actions that rely on communication and
+-- synchronisation primitives will not work as expected.
+lift :: Monad m => m a -> RequestT m a
+lift = RequestT . Trans.lift
 
 -- | Get a value from the state.
 gets :: Monad m => (State m -> a) -> RequestT m a
@@ -137,209 +91,113 @@ gets = RequestT . State.gets
 modify :: Monad m => (State m -> State m) -> RequestT m ()
 modify = RequestT . State.modify
 
--- | Lift a ServerT action into RequestT.
---
--- This is potentially unsafe and should only be used for the allocation of
--- server resources. Lifting actions that rely on communication and
--- synchronisation primitives will not work as expected.
-liftServer :: Monad m => ServerT m a -> RequestT m a
-liftServer = RequestT . Trans.lift
+--newtype AsyncT m a = AsyncT (RequestT m (Maybe OSC -> OSC, a))
 
 -- | Allocation action newtype wrapper.
-newtype AllocT m a = AllocT (ServerT m a)
+newtype AllocT m a = AllocT (m a)
                      deriving (Applicative, Functor, MonadIdAllocator, Monad)
 
 -- | Representation of a deferred server resource.
 --
 -- Resource resource values can only be observed with 'extract' after the
 -- surrounding 'RequestT' action has been executed with 'exec'.
-newtype Resource m a = Resource { extract :: ServerT m a -- ^ Extract result from deferred resource.
-                                }
-                       deriving (Applicative, Functor, Monad)
+newtype Value a = Value (IO a)
+                  deriving (Applicative, Functor, Monad)
 
--- | Return a pure value as a 'Resource' in the 'RequestT' monad transformer.
-resource :: Monad m => a -> RequestT m (Resource m a)
-resource = return . return
+value :: MonadIO m => Value a -> m a
+value (Value extract) = liftIO extract
 
 -- | Register a cleanup action that is executed after the notification has been
 -- received and return the deferred notification result.
-after :: MonadIO m => Notification a -> AllocT m () -> RequestT m (Resource m a)
+after :: MonadIO m => Notification a -> AllocT m () -> RequestT m (Value a)
 after n (AllocT m) = do
-    v <- liftServer $ liftIO $ newIORef (error "BUG: after: uninitialized IORef")
+    v <- lift $ liftIO $ newIORef (error "BUG: after: uninitialized IORef")
     modify $ \s -> s { notifications = fmap (liftIO . writeIORef v) n : notifications s
                      , cleanup = cleanup s >> m }
-    return $ Resource $ liftIO $ readIORef v
+    return $ Value (readIORef v)
 
 -- | Register a cleanup action, to be executed after a notification has been
 -- received and ignore the notification result.
-after_ :: Monad m => Notification a -> AllocT m () -> RequestT m (Resource m ())
-after_ n (AllocT m) = do
+after_ :: Monad m => Notification a -> AllocT m () -> RequestT m ()
+after_ n (AllocT m) =
     modify $ \s -> s { notifications = fmap (const (return ())) n : notifications s
                      , cleanup = cleanup s >> m }
-    return $ Resource $ return ()
 
 -- | Register a cleanup action that is executed after all asynchronous commands
 -- and notifications have been performed.
 finally :: Monad m => AllocT m () -> RequestT m ()
 finally (AllocT m) = modify $ \s -> s { cleanup = cleanup s >> m }
 
--- | Representation of an asynchronous server command. Asynchronous commands
--- are executed asynchronously with respect to other server commands.
---
--- There are two different ways of synchronising with an asynchronous command:
---
--- * using 'whenDone' for server-side synchronisation, or
---
--- * using 'async' and observing the result of a 'RequestT' action after calling
--- 'exec'.
-newtype Async m a = Async (RequestT m (a, (Maybe OSC -> OSC)))
+---- | Execute an asynchronous command, discarding the result.
+--sync_ :: MonadIO m => AsyncT m a -> RequestT m ()
+--sync_ (AsyncT m) = do
+--  (f, _) <- m
+--  msg <- mkSync
+--  modify $ \s -> s { requests = Sync (f (Just msg)) : requests s }
+--  return ()
+
+---- | Execute an asynchronous command and return the result.
+--sync :: Monad m => AsyncT m a -> RequestT m a
+--sync (AsyncT m) = do
+--  (f, a) <- m
+--  modify $ \s -> s { requests = Async f : requests s
+--                   , needsSync = True }
+--  return a
 
 -- | Create an asynchronous command from an allocation action.
 --
 -- The first return value should be a server resource allocated on the client,
 -- the second a function that, given a completion packet, returns an OSC packet
 -- that asynchronously allocates the resource on the server.
-mkAsync :: Monad m => AllocT m (a, (Maybe OSC -> OSC)) -> Async m a
-mkAsync (AllocT m) = Async (liftServer m)
+mkAsync :: Monad m => AllocT m (a, (Maybe OSC -> OSC)) -> RequestT m a
+mkAsync (AllocT m) = do
+  (a, f) <- lift m
+  modify $ \s -> s { requests = Async f : requests s
+                   , needsSync = True }
+  return a
 
--- | Create an asynchronous command from a side effecting OSC function.
-mkAsync_ :: Monad m => (Maybe OSC -> OSC) -> Async m ()
+-- | Create an asynchronous command from an OSC function that has side effects only on the server.
+mkAsync_ :: Monad m => (Maybe OSC -> OSC) -> RequestT m ()
 mkAsync_ f = mkAsync $ return ((), f)
 
--- | Create an asynchronous command.
+---- | Create an asynchronous command.
+----
+---- The completion message will be appended at the end of the returned message.
+--mkAsyncCM :: Monad m => AllocT m (a, OSC) -> RequestT m a
+--mkAsyncCM = mkAsync . liftM (second f)
+--    where
+--        f msg Nothing   = msg
+--        f msg (Just cm) = C.withCM msg cm
+
+-- | Create a synchronisation barrier message.
+mkSync :: MonadIdAllocator m => RequestT m OSC
+mkSync = do
+  sid <- lift $ M.alloc M.syncIdAllocator
+  after_ (N.synced sid) (M.free M.syncIdAllocator sid)
+  return $ C.sync (fromIntegral sid)
+
+-- | Execute a request.
 --
--- The completion message will be appended at the end of the returned message.
-mkAsyncCM :: Monad m => AllocT m (a, OSC) -> Async m a
-mkAsyncCM = mkAsync . liftM (second f)
-    where
-        f msg Nothing   = msg
-        f msg (Just cm) = C.withCM msg cm
+-- The commands after the last asynchronous command will be schedule at the given time.
+exec :: (MonadIdAllocator m, MonadRecvOSC m) => Time -> RequestT m a -> m a
+exec t r = do
+  let RequestT m = do
+        b <- gets needsSync
+        if b
+          then do
+            a <- r
+            mkSync >>= M.send
+            return a
+          else r
+  (a, s) <- State.runStateT m (State [] [] (return ()) False)
+  case requests s of
+    [] -> return ()
+    rs -> let osc = compile t rs
+              ns = notifications s
+          in M.waitForAll osc ns >>= sequence_
+  cleanup s
+  return a
 
--- | Add a synchronisation barrier.
-addSync :: MonadIO m => RequestT m a -> RequestT m a
-addSync m = do
-    a <- m
-    b <- gets hasOSC
-    when b $ do
-        s <- gets syncState
-        case s of
-            NeedsSync -> do
-                sid <- liftServer $ M.alloc M.syncIdAllocator
-                send (C.sync (fromIntegral sid))
-                after_ (N.synced sid) (M.free M.syncIdAllocator sid)
-                return ()
-            _ -> return ()
-    return a
-
--- | Execute an server-side action after the asynchronous command has
--- finished.
-{-whenDone :: MonadIO m => Async m a -> (a -> RequestT m (Resource m b)) -> Async m b-}
-{-whenDone (Async m) f = Async $ do-}
-    {-(a, g) <- m-}
-    {-b <- f a-}
-    {-return (b, g)-}
-
--- | Execute an asynchronous command asynchronously.
-whenDone :: MonadIO m => Async m a -> (a -> RequestT m (Resource m b)) -> RequestT m (Resource m b)
-whenDone (Async m) f = do
-    t <- gets timeTag
-    (a, g) <- m
-    (b, s) <- liftServer $ runRequestT_ t NeedsSync $ addSync $ f a
-    case getOSC s of
-        [] -> do
-            send (g Nothing)
-            modify $ \s' -> s' {
-                syncState = max NeedsSync (syncState s')
-              , notifications = notifications s' ++ notifications s
-              , cleanup = cleanup s' >> cleanup s }
-        osc -> do
-            let t' = case syncState s of
-                        HasSync -> immediately
-                        _       -> t
-            send $ g (Just (Bundle t' osc))
-            modify $ \s' -> s' {
-                syncState = max HasSync (syncState s')
-              , notifications = notifications s' ++ notifications s
-              , cleanup = cleanup s' >> cleanup s }
-    return b
-
--- | Execute an asynchronous command asynchronously.
-async :: (MonadIO m) => Async m a -> RequestT m (Resource m a)
-async = flip whenDone (return . return)
-
-{-
--- | Execute an server-side action after the asynchronous command has
--- finished. The corresponding server commands are scheduled at a time @t@ in
--- the future.
-whenDone :: MonadIO m => Async m a -> (a -> RequestT m b) -> RequestT m (Resource b)
-whenDone (Async m) f = do
-    t <- gets timeTag
-    (a, g) <- m
-    (b, s) <- liftServer $ runRequestT_ t NeedsSync $ addSync (f a)
-    let t' = case syncState s of
-                HasSync -> immediately
-                _       -> t
-    send $ g (Just (Bundle t' (getOSC s)))
-    modify $ \s' -> s' {
-        notifications = notifications s' ++ notifications s
-      , cleanup = cleanup s' >> cleanup s
-      , syncState = HasSync }
-    return b
-
--- | Execute an asynchronous command asynchronously.
-async :: MonadIO m => Async m a -> RequestT m (Resource a)
-async (Async m) = do
-    (a, g) <- m
-    send (g Nothing)
-    modify $ setSyncState NeedsSync
-    return $ pure a
--}
-
-runRequestT :: MonadIO m => Time -> RequestT m a -> ServerT m (ServerT m a, Maybe (OSC, [Notification (ServerT m ())]))
-runRequestT t m = do
-    (a, s) <- runRequestT_ t NoSync $ addSync m
-    let result = cleanup s >> return a
-    case getOSC s of
-        [] -> return (result, Nothing)
-        osc -> let t' = case syncState s of
-                            HasSync -> immediately
-                            _ -> t
-               in return (result, Just (Bundle t' osc, notifications s))
-
--- | Run the 'RequestT' action and return the result.
---
--- All asynchronous commands and notifications are guaranteed to have finished
--- when this function returns.
-exec :: MonadIO m => Time -> RequestT m a -> ServerT m a
-exec t m = do
-    -- (a, s) <- runRequestT_ t NoSync $ addSync m
-    -- case getOSC s of
-    --     [] -> return ()
-    --     osc -> do
-    --         -- liftIO $ print osc
-    --         let t' = case syncState s of
-    --                     HasSync -> immediately
-    --                     _ -> t
-    (result, sync) <- runRequestT t m
-    case sync of
-        Nothing -> return ()
-        Just (osc, ns) -> M.waitForAll osc ns >>= sequence_
-    result
-
-exec' :: MonadIO m => Time -> RequestT m (Resource m a) -> ServerT m a
-exec' t m = exec t m >>= extract
-
--- | Infix operator version of 'exec'.
-(!>) :: MonadIO m => Time -> RequestT m a -> ServerT m a
-(!>) = exec
-
--- | Run a 'RequestT' action that returns a pure result.
---
--- All asynchronous commands and notifications are guaranteed to have finished
--- when this function returns.
-{-execPure :: MonadIO m => Time -> RequestT m a -> ServerT m a-}
-{-execPure t m = exec t (m >>= return . return)-}
-
--- | Infix operator version of 'execPure'.
-{-(~>) :: MonadIO m => Time -> RequestT m a -> ServerT m a-}
-{-(~>) = execPure-}
+-- | Execute a request immediately.
+exec_ :: (MonadIdAllocator m, MonadRecvOSC m) => RequestT m a -> m a
+exec_ = exec immediately
