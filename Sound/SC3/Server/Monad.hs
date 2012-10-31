@@ -45,7 +45,7 @@ import           Control.Concurrent.Lifted (ThreadId)
 import qualified Control.Concurrent.Lifted as CL
 import           Control.Concurrent.MVar.Strict
 import           Control.DeepSeq (NFData)
-import           Control.Monad (MonadPlus, liftM)
+import           Control.Monad (MonadPlus, liftM, replicateM)
 import           Control.Monad.Base (MonadBase(..), liftBaseDefault)
 import           Control.Monad.Fix (MonadFix)
 import           Control.Monad.IO.Class (MonadIO, liftIO)
@@ -191,7 +191,7 @@ withAllocator f (Allocator a) = ServerT $ do
 withAllocator_ :: (IdAllocator a, NFData a, MonadIO m) => (a -> IO a) -> Allocator a -> ServerT m ()
 withAllocator_ f = withAllocator (liftM ((,)()) . f)
 
-instance (MonadIO m) => MonadIdAllocator (ServerT m) where
+instance MonadIO m => MonadIdAllocator (ServerT m) where
     rootNodeId      = return (fromIntegral 0)
     alloc a         = withAllocator A.alloc a
     free a i        = withAllocator_ (A.free i) a
@@ -206,24 +206,56 @@ class Monad m => MonadSendOSC m where
 withConnection :: MonadIO m => (Connection -> IO a) -> ServerT m a
 withConnection f = ServerT $ R.asks _connection >>= \c -> liftIO (f c)
 
-instance MonadIO m => MonadSendOSC (ServerT m) where
-    send osc = withConnection $ \c -> C.send c osc
+sendC :: Connection -> OSC -> IO ()
+sendC c osc = do
+  -- TODO: Make this configurable
+  --print osc
+  C.send c osc
 
-class Monad m => MonadRecvOSC m where
+instance MonadIO m => MonadSendOSC (ServerT m) where
+    send osc = withConnection $ \c -> sendC c osc
+
+class MonadSendOSC m => MonadRecvOSC m where
     -- | Wait for a notification and return the result.
     waitFor :: OSC -> Notification a -> m a
     -- | Wait for a notification and ignore the result.
     waitFor_ :: OSC -> Notification a -> m ()
+    waitFor_ osc n = waitFor osc n >> return ()
     -- | Wait for a set of notifications and return their results in unspecified order.
     waitForAll :: OSC -> [Notification a] -> m [a]
     -- | Wait for a set of notifications and ignore their results.
     waitForAll_ :: OSC -> [Notification a] -> m ()
+    waitForAll_ osc ns = waitForAll osc ns >> return ()
+
+-- | Send an OSC packet and wait for a notification.
+--
+-- Returns the transformed value.
+_waitFor :: Connection -> OSC -> Notification a -> IO a
+_waitFor c osc n = do
+    res <- CL.newEmptyMVar
+    uid <- C.addListener c (C.notificationListener (CL.putMVar res) n)
+    sendC c osc
+    a <- CL.takeMVar res
+    C.removeListener c uid
+    return a
+
+-- | Send an OSC packet and wait for a list of notifications.
+--
+-- Returns the transformed values, in unspecified order.
+_waitForAll :: Connection -> OSC -> [Notification a] -> IO [a]
+_waitForAll c osc [] =
+    sendC c osc >> return []
+_waitForAll c osc ns = do
+    res <- CL.newChan
+    uids <- mapM (C.addListener c . C.notificationListener (CL.writeChan res)) ns
+    sendC c osc
+    as <- replicateM (length ns) (CL.readChan res)
+    mapM_ (C.removeListener c) uids
+    return as
 
 instance MonadIO m => MonadRecvOSC (ServerT m) where
-    waitFor osc n      = withConnection $ \c -> C.waitFor c osc n
-    waitFor_ osc n     = withConnection $ \c -> C.waitFor_ c osc n
-    waitForAll osc ns  = withConnection $ \c -> C.waitForAll c osc ns
-    waitForAll_ osc ns = withConnection $ \c -> C.waitForAll_ c osc ns
+    waitFor osc n     = withConnection $ \c -> _waitFor c osc n
+    waitForAll osc ns = withConnection $ \c -> _waitForAll c osc ns
 
 -- | Append a @\/sync@ message to an OSC packet.
 appendSync :: OSC -> SyncId -> OSC
