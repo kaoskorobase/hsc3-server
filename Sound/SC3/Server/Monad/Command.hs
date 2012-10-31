@@ -29,6 +29,8 @@ module Sound.SC3.Server.Monad.Command
   -- ** Nodes
   , Node(..)
   , AddAction(..)
+  , AbstractNode
+  , node
   , n_after
   , n_before
   , n_fill
@@ -180,8 +182,8 @@ instance Node AbstractNode where
 instance Show AbstractNode where
     show (AbstractNode n) = show n
 
-n_wrap :: (Eq n, Node n, Show n) => n -> AbstractNode
-n_wrap = AbstractNode
+node :: (Eq n, Node n, Show n) => n -> AbstractNode
+node = AbstractNode
 
 -- | Place node @a@ after node @b@.
 n_after :: (Node a, Node b, Monad m) => a -> b -> RequestT m ()
