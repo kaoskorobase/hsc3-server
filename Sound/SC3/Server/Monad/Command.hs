@@ -305,27 +305,34 @@ instance Node Group where
 rootNode :: MonadIdAllocator m => m Group
 rootNode = liftM Group M.rootNodeId
 
+-- | Create a new group.
 g_new :: MonadIdAllocator m => AddAction -> Group -> RequestT m Group
 g_new a p = do
     nid <- M.alloc M.nodeIdAllocator
     send $ C.g_new [(fromIntegral nid, a, fromIntegral (nodeId p))]
     return $ Group nid
 
+-- | Create a new group in the top level group.
 g_new_ :: MonadIdAllocator m => AddAction -> RequestT m Group
 g_new_ a = rootNode >>= g_new a
 
+-- | Free all synths in this group and all its sub-groups.
 g_deepFree :: Monad m => Group -> RequestT m ()
 g_deepFree g = send $ C.g_deepFree [fromIntegral (nodeId g)]
 
+-- | Delete all nodes in a group.
 g_freeAll :: Monad m => Group -> RequestT m ()
 g_freeAll g = send $ C.g_freeAll [fromIntegral (nodeId g)]
 
+-- | Add node to head of group.
 g_head :: (Node n, Monad m) => Group -> n -> RequestT m ()
 g_head g n = send $ C.g_head [(fromIntegral (nodeId g), fromIntegral (nodeId n))]
 
+-- | Add node to tail of group.
 g_tail :: (Node n, Monad m) => Group -> n -> RequestT m ()
 g_tail g n = send $ C.g_tail [(fromIntegral (nodeId g), fromIntegral (nodeId n))]
 
+-- | Post a representation of a group's node subtree, optionally including the current control values for synths.
 g_dumpTree :: Monad m => [(Group, Bool)] -> RequestT m ()
 g_dumpTree = send . C.g_dumpTree . map (first (fromIntegral . nodeId))
 

@@ -104,6 +104,7 @@ newtype AllocT m a = AllocT (m a)
 newtype Value a = Value (IO a)
                   deriving (Applicative, Functor, Monad)
 
+-- | Extract a 'Value'\'s value.
 value :: MonadIO m => Value a -> m a
 value (Value extract) = liftIO extract
 
