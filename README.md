@@ -1,6 +1,21 @@
-**hsc3-server** is a Haskell library that provides abstractions for managing [SuperCollider][] server resources, such as node, buffer and bus ids, as well as synchronization primitives.
+**hsc3-server** is a Haskell library for managing [SuperCollider](http://supercollider.sourceforge.net) server resources such as node, buffer and bus ids. It also provides synchronization primitives.
 
-For more information please visit the [website][].
+### Installation
 
-[supercollider]: http://supercollider.sourceforge.net/
-[website]: http://space.k-hornz.de/software/hsc3-server/
+    cabal install hsc3-server
+
+### Documentation
+
+* [Change log](https://github.com/kaoskorobase/hsc3-server/blob/master/ChangeLog.md)
+* [API documentation](http://hackage.haskell.org/package/hsc3-server)
+* [Example scripts](https://github.com/kaoskorobase/hsc3-server/tree/master/examples)
+
+### Reporting bugs
+
+Please report bugs in our [issue tracker](https://github.com/kaoskorobase/hsc3-server/issues).
+
+### Development
+
+**hsc3-server**'s source code is hosted at [github](https://github.com/kaoskorobase/hsc3-server). You can check out a copy of the repository with the following command:
+
+    git clone git://github.com/kaoskorobase/hsc3-server.git
