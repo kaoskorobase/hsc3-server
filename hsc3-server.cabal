@@ -47,15 +47,14 @@ Library
         base >= 4.3 && < 5
       , bitset >= 1.0 && < 1.2
       , containers >= 0.2 && < 0.6
-      --, data-accessor >= 0.2
       , deepseq >= 1.1 && < 1.4
       , failure >= 0.2 && < 0.3
       , hosc >= 0.8 && < 0.12
       , hsc3 >= 0.11 && < 0.12
-      , hsc3-process >= 0.7 && < 0.8
-      , lifted-base >= 0.1 && < 0.2
+      , hsc3-process == 0.8.*
+      , lifted-base >= 0.1 && < 0.3
       , monad-control >= 0.3 && < 0.4
-      , resourcet >= 0.3 && < 0.4
+      , resourcet >= 0.3 && < 0.5
       , strict-concurrency >= 0.2 && < 0.3
       , transformers >= 0.2 && < 0.4
       , transformers-base >= 0.4 && < 0.5
@@ -82,10 +81,10 @@ Executable hsc3-hello
       , failure >= 0.2 && < 0.3
       , hosc >= 0.8 && < 0.12
       , hsc3 >= 0.11 && < 0.12
-      , hsc3-process >= 0.7 && < 0.8
-      , lifted-base >= 0.1 && < 0.2
+      , hsc3-process == 0.8.*
+      , lifted-base >= 0.1 && < 0.3
       , monad-control >= 0.3 && < 0.4
-      , resourcet >= 0.3 && < 0.4
+      , resourcet >= 0.3 && < 0.5
       , strict-concurrency >= 0.2 && < 0.3
       , transformers >= 0.2 && < 0.4
       , transformers-base >= 0.4 && < 0.5
@@ -106,11 +105,11 @@ Executable hsc3-sine-grains
       , failure >= 0.2 && < 0.3
       , hosc >= 0.8 && < 0.12
       , hsc3 >= 0.11 && < 0.12
-      , hsc3-process >= 0.7 && < 0.8
-      , lifted-base >= 0.1 && < 0.2
+      , hsc3-process == 0.8.*
+      , lifted-base >= 0.1 && < 0.3
       , monad-control >= 0.3 && < 0.4
       , random >= 1.0 && < 1.1
-      , resourcet >= 0.3 && < 0.4
+      , resourcet >= 0.3 && < 0.5
       , strict-concurrency >= 0.2 && < 0.3
       , transformers >= 0.2 && < 0.4
       , transformers-base >= 0.4 && < 0.5
