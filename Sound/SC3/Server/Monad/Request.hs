@@ -1,6 +1,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module Sound.SC3.Server.Monad.Request (
   Request
+, runRequest
 , exec
 , exec_
 , Result
@@ -52,7 +53,11 @@ data State m = State {
   , needsSync     :: Bool                   -- ^ Whether last bundle needs a synchronisation barrier.
   }
 
--- | Representation of a server-side action (or sequence of actions).
+-- | The empty state.
+emptyState :: Monad m => State m
+emptyState = State [] [] (return ()) False
+
+-- | Server-side action (or sequence of actions).
 newtype Request m a = Request (State.StateT (State m) m a)
                         deriving (Applicative, Functor, Monad)
 
@@ -128,22 +133,6 @@ after_ n (AllocT m) =
 finally :: Monad m => AllocT m () -> Request m ()
 finally (AllocT m) = modify $ \s -> s { cleanup = cleanup s >> m }
 
----- | Execute an asynchronous command, discarding the result.
---sync_ :: MonadIO m => AsyncT m a -> Request m ()
---sync_ (AsyncT m) = do
---  (f, _) <- m
---  msg <- mkSync
---  modify $ \s -> s { requests = Sync (f (Just msg)) : requests s }
---  return ()
-
----- | Execute an asynchronous command and return the result.
---sync :: Monad m => AsyncT m a -> Request m a
---sync (AsyncT m) = do
---  (f, a) <- m
---  modify $ \s -> s { requests = Async f : requests s
---                   , needsSync = True }
---  return a
-
 -- | Create an asynchronous command from an allocation action.
 --
 -- The first return value should be a server resource allocated on the client,
@@ -160,15 +149,6 @@ mkAsync (AllocT m) = do
 mkAsync_ :: Monad m => (Maybe OSC -> OSC) -> Request m ()
 mkAsync_ f = mkAsync $ return ((), f)
 
----- | Create an asynchronous command.
-----
----- The completion message will be appended at the end of the returned message.
---mkAsyncCM :: Monad m => AllocT m (a, OSC) -> Request m a
---mkAsyncCM = mkAsync . liftM (second f)
---    where
---        f msg Nothing   = msg
---        f msg (Just cm) = C.withCM msg cm
-
 -- | Create a synchronisation barrier message.
 mkSync :: MonadIdAllocator m => Request m OSC
 mkSync = do
@@ -176,20 +156,35 @@ mkSync = do
   after_ (N.synced sid) (M.free M.syncIdAllocator sid)
   return $ C.sync (fromIntegral sid)
 
+-- | Add a synchronisation barrier to a request if needed.
+finish :: MonadIdAllocator m => Request m a -> Request m a
+finish r = do
+  b <- gets needsSync
+  if b
+    then do
+      a <- r
+      mkSync >>= M.send
+      return a
+    else r
+
+-- | Run a request, returning the action's result, an OSC packet,
+--   a list of notifications to synchronise on and a cleanup action.
+runRequest :: (MonadIdAllocator m, MonadRecvOSC m) => Time -> Request m a -> m (a, Maybe (OSC, [Notification (m ())]), m ())
+runRequest t r = do
+  let Request m = finish r
+  (a, s) <- State.runStateT m emptyState
+  let osc = case requests s of
+              [] -> Nothing
+              rs -> Just (compile t rs, notifications s)
+  return (a, osc, cleanup s)
+
 -- | Execute a request.
 --
 -- The commands after the last asynchronous command will be schedule at the given time.
 exec :: (MonadIdAllocator m, MonadRecvOSC m) => Time -> Request m a -> m a
 exec t r = do
-  let Request m = do
-        b <- gets needsSync
-        if b
-          then do
-            a <- r
-            mkSync >>= M.send
-            return a
-          else r
-  (a, s) <- State.runStateT m (State [] [] (return ()) False)
+  let Request m = finish r
+  (a, s) <- State.runStateT m emptyState
   case requests s of
     [] -> return ()
     rs -> let osc = compile t rs
