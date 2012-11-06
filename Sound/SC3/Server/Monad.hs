@@ -40,12 +40,12 @@ module Sound.SC3.Server.Monad
   , fork
   ) where
 
-import           Control.Applicative
+import           Control.Applicative (Alternative, Applicative)
 import           Control.Concurrent.Lifted (ThreadId)
 import qualified Control.Concurrent.Lifted as CL
 import           Control.Concurrent.MVar.Strict
 import           Control.DeepSeq (NFData)
-import           Control.Monad (MonadPlus, liftM, replicateM)
+import           Control.Monad (MonadPlus, ap, liftM, replicateM)
 import           Control.Monad.Base (MonadBase(..), liftBaseDefault)
 import           Control.Monad.Fix (MonadFix)
 import           Control.Monad.IO.Class (MonadIO, liftIO)
@@ -121,14 +121,14 @@ audioBusIdAllocator = Allocator _audioBusIdAllocator
 
 -- | Run a 'ServerT' computation given a connection and return the result.
 runServerT :: MonadIO m => ServerT m a -> ServerOptions -> Connection -> m a
-runServerT (ServerT r) so c = do
-    sa <- new State.syncIdAllocator
-    na <- new State.nodeIdAllocator
-    ba <- new State.bufferIdAllocator
-    ca <- new State.controlBusIdAllocator
-    aa <- new State.audioBusIdAllocator
-    let s = State so c sa na ba ca aa
-    runReaderT (init >> r) s
+runServerT (ServerT r) so c =
+    return (State so c)
+      `ap` new State.syncIdAllocator
+      `ap` new State.nodeIdAllocator
+      `ap` new State.bufferIdAllocator
+      `ap` new State.controlBusIdAllocator
+      `ap` new State.audioBusIdAllocator
+      >>= runReaderT (init >> r)
     where 
         as = State.mkAllocators so
         new :: (IdAllocator a, NFData a, MonadIO m) => (State.Allocators -> a) -> m (MVar a)
