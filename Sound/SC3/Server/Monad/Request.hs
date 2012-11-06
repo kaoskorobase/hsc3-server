@@ -27,8 +27,8 @@ import qualified Sound.SC3.Server.Notification as N
 import           Sound.OpenSoundControl (OSC(..), Time, immediately)
 
 data Build =
-    Sync OSC
-  | Async (Maybe OSC -> OSC)
+    BuildSync OSC
+  | BuildAsync (Maybe OSC -> OSC)
 
 compile :: Time -> [Build] -> OSC
 compile t rs = go t rs []
@@ -36,12 +36,13 @@ compile t rs = go t rs []
     go t [] ps = Bundle t ps
     go t (r:rs) ps =
       case r of
-        Sync osc -> go t rs (osc : ps)
-        Async f  -> case ps of
-                      [] -> let ps' = [f Nothing]
-                            in go t rs ps'
-                      _  -> let ps' = [f (Just (Bundle t ps))]
-                            in go immediately rs ps'
+        BuildSync osc ->
+          go t rs (osc : ps)
+        BuildAsync f  -> case ps of
+          [] -> let ps' = [f Nothing]
+                in go t rs ps'
+          _  -> let ps' = [f (Just (Bundle t ps))]
+                in go immediately rs ps'
 
 -- | Internal state used for constructing bundles from 'Request' actions.
 data State m = State {
@@ -70,7 +71,7 @@ instance MonadIdAllocator m => MonadIdAllocator (Request m) where
 -- | Bundles are flattened into the resulting bundle because @scsynth@ doesn't
 -- support nested bundles.
 instance Monad m => MonadSendOSC (Request m) where
-    send osc@(Message _ _) = modify $ \s -> s { requests = Sync osc : requests s }
+    send osc@(Message _ _) = modify $ \s -> s { requests = BuildSync osc : requests s }
     send (Bundle _ xs)     = mapM_ M.send xs
 
 -- | Lift a ServerT action into Request.
@@ -151,7 +152,7 @@ finally (AllocT m) = modify $ \s -> s { cleanup = cleanup s >> m }
 mkAsync :: Monad m => AllocT m (a, (Maybe OSC -> OSC)) -> Request m a
 mkAsync (AllocT m) = do
   (a, f) <- lift m
-  modify $ \s -> s { requests = Async f : requests s
+  modify $ \s -> s { requests = BuildAsync f : requests s
                    , needsSync = True }
   return a
 
