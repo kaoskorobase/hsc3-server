@@ -17,13 +17,13 @@ module Sound.SC3.Server.Allocator
     , module Sound.SC3.Server.Allocator.Range
     ) where
 
-import Control.Exception (Exception)
-import Control.Failure (Failure)
-import Control.Monad (foldM, replicateM)
+import           Control.Exception (Exception)
+import           Control.Failure (Failure)
+import           Control.Monad (foldM, replicateM)
 import qualified Control.Monad.Trans.Class as State
 import qualified Control.Monad.Trans.State.Strict as State
-import Data.Typeable (Typeable)
-import Sound.SC3.Server.Allocator.Range
+import           Data.Typeable (Typeable)
+import           Sound.SC3.Server.Allocator.Range
 
 -- | Failure type for allocators.
 data AllocFailure =
