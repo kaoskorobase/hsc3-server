@@ -14,7 +14,6 @@ Category:           Sound
 Copyright:          Copyright (c) Stefan Kersten 2008-2012
 Author:             Stefan Kersten
 Maintainer:         Stefan Kersten
-Stability:          experimental
 Homepage:           https://github.com/kaoskorobase/hsc3-server
 Tested-With:        GHC == 6.10, GHC == 6.12, GHC == 7.0, GHC == 7.2
 Build-Type:         Simple
