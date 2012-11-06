@@ -1,9 +1,9 @@
-{-# LANGUAGE FlexibleContexts
-           , FlexibleInstances
-           , GeneralizedNewtypeDeriving
-           , MultiParamTypeClasses
-           , TypeFamilies
-           , UndecidableInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE UndecidableInstances #-}
 module Sound.SC3.Server.Monad
   ( -- * Server Monad
     ServerT
