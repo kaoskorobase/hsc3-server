@@ -44,7 +44,7 @@ Library
         Sound.SC3.Server.Allocator.BlockAllocator.FreeList        
         Sound.SC3.Server.Monad.Request
     Build-Depends:
-        base >= 3 && < 5
+        base >= 4.3 && < 5
       , bitset >= 1.0 && < 1.2
       , containers >= 0.2 && < 0.6
       --, data-accessor >= 0.2
@@ -75,7 +75,7 @@ Executable hsc3-hello
     else
         Buildable: False
     Build-Depends:
-        base >= 3 && < 5
+        base >= 4.3 && < 5
       , bitset >= 1.0 && < 1.2
       , containers >= 0.2 && < 0.6
       , deepseq >= 1.1 && < 1.4
@@ -99,7 +99,7 @@ Executable hsc3-sine-grains
     else
         Buildable: False
     Build-Depends:
-        base >= 3 && < 5
+        base >= 4.3 && < 5
       , bitset >= 1.0 && < 1.2
       , containers >= 0.2 && < 0.6
       , deepseq >= 1.1 && < 1.4
@@ -125,7 +125,7 @@ Test-Suite hsc3-server-test
         Sound.SC3.Server.Allocator.Test
         Sound.SC3.Server.Allocator.Range.Test
     Build-Depends:
-        base >= 3 && < 5
+        base >= 4.3 && < 5
       , bitset >= 1.0
       , deepseq >= 1.1
       , failure >= 0.1
