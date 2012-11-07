@@ -106,11 +106,11 @@ instance NFData BusIdAllocator where
 
 -- | Server allocators.
 data Allocators = Allocators {
-    syncIdAllocator       :: !SyncIdAllocator
-  , nodeIdAllocator       :: !NodeIdAllocator
-  , bufferIdAllocator     :: !BufferIdAllocator
-  , controlBusIdAllocator :: !BusIdAllocator
-  , audioBusIdAllocator   :: !BusIdAllocator
+    syncIdAllocator       :: SyncIdAllocator
+  , nodeIdAllocator       :: NodeIdAllocator
+  , bufferIdAllocator     :: BufferIdAllocator
+  , controlBusIdAllocator :: ControlBusIdAllocator
+  , audioBusIdAllocator   :: AudioBusIdAllocator
   }
 
 -- | Create a new state with default allocators.
