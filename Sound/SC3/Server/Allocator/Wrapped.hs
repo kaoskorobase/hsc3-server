@@ -1,13 +1,12 @@
 {-# LANGUAGE FlexibleContexts #-}
 -- | Helper functions for newtype wrappers.
-module Sound.SC3.Server.Allocator.Wrapped
-  (
-    alloc
-  , free
-  , statistics
-  , allocRange
-  , freeRange
-  ) where
+module Sound.SC3.Server.Allocator.Wrapped (
+  alloc
+, free
+, statistics
+, allocRange
+, freeRange
+) where
 
 import           Control.Arrow (second)
 import           Control.Failure (Failure)

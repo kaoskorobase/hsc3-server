@@ -3,19 +3,17 @@
   , FlexibleContexts
   , TypeFamilies #-}
 
-module Sound.SC3.Server.Allocator
-    ( -- *Allocation errors
-      AllocFailure(..)
-      -- * Allocator statistics
-    , Statistics(..)
-    , percentFree
-    , percentUsed
-      -- * Allocator classes
-    , IdAllocator(..)
-    , RangeAllocator(..)
-      -- * Identifier ranges
-    , module Sound.SC3.Server.Allocator.Range
-    ) where
+module Sound.SC3.Server.Allocator (
+  -- *Allocation errors
+  AllocFailure(..)
+  -- * Allocator statistics
+, Statistics(..)
+, percentFree
+, percentUsed
+  -- * Allocator classes
+, IdAllocator(..)
+, RangeAllocator(..)
+) where
 
 import           Control.Exception (Exception)
 import           Control.Failure (Failure)

@@ -8,21 +8,23 @@
 --
 -- The server state consists mainly of the allocators needed for different types of resources, such as nodes, buffers and buses.
 module Sound.SC3.Server.State (
-    SyncId
-  , SyncIdAllocator
-  , syncIdAllocator
-  , NodeId
-  , NodeIdAllocator
-  , nodeIdAllocator
-  , BufferId
-  , BufferIdAllocator
-  , bufferIdAllocator
-  , BusId
-  , BusIdAllocator
-  , controlBusIdAllocator
-  , audioBusIdAllocator
-  , Allocators
-  , mkAllocators
+  SyncId
+, SyncIdAllocator
+, syncIdAllocator
+, NodeId
+, NodeIdAllocator
+, nodeIdAllocator
+, BufferId
+, BufferIdAllocator
+, bufferIdAllocator
+, ControlBusId
+, ControlBusIdAllocator
+, controlBusIdAllocator
+, AudioBusId
+, AudioBusIdAllocator
+, audioBusIdAllocator
+, Allocators
+, mkAllocators
 ) where
 
 import           Control.DeepSeq (NFData(..))
