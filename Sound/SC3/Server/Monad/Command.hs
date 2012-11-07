@@ -91,8 +91,9 @@ import           Control.Monad (liftM, unless)
 import           Control.Monad.IO.Class (MonadIO)
 import           Sound.OpenSoundControl (OSC(..))
 import           Sound.SC3 (Rate(..), UGen)
+import           Sound.SC3.Server.Allocator.Range (Range)
 import qualified Sound.SC3.Server.Allocator.Range as Range
-import           Sound.SC3.Server.Monad (BufferId, BusId, MonadIdAllocator, MonadRecvOSC, MonadServer, NodeId, Range, send, serverOption)
+import           Sound.SC3.Server.Monad (BufferId, BusId, MonadIdAllocator, MonadRecvOSC, MonadServer, NodeId, send, serverOption)
 import qualified Sound.SC3.Server.Monad as M
 import           Sound.SC3.Server.Monad.Request (Request, Result, after, after_, finally, mkAsync, mkAsync_, mkSync)
 import qualified Sound.SC3.Server.Monad.Request as R

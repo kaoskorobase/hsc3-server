@@ -30,8 +30,8 @@ module Sound.SC3.Server.State (
 import           Control.DeepSeq (NFData(..))
 import           Data.Int (Int32)
 import           Sound.SC3.Server.Allocator (IdAllocator(..), RangeAllocator(..))
-import qualified Sound.SC3.Server.Allocator as Alloc
 import qualified Sound.SC3.Server.Allocator.BlockAllocator.FirstFit as FirstFitAllocator
+import qualified Sound.SC3.Server.Allocator.Range as Range
 import qualified Sound.SC3.Server.Allocator.SetAllocator as SetAllocator
 import qualified Sound.SC3.Server.Allocator.SimpleAllocator as SimpleAllocator
 import qualified Sound.SC3.Server.Allocator.Wrapped as Wrapped
@@ -117,26 +117,33 @@ data Allocators = Allocators {
 -- | Create a new state with default allocators.
 mkAllocators :: ServerOptions -> Allocators
 mkAllocators os =
-    Allocators {
-        syncIdAllocator       = sid
-      , nodeIdAllocator       = nid
-      , bufferIdAllocator     = bid
-      , controlBusIdAllocator = cid
-      , audioBusIdAllocator   = aid
-    }
-    where
-        sid = SyncIdAllocator (SimpleAllocator.cons (Alloc.range 0 (maxBound :: SyncId)))
-        nid = NodeIdAllocator (SetAllocator.cons (Alloc.range 1000 (1000 + fromIntegral (maxNumberOfNodes os))))
-        bid = BufferIdAllocator (FirstFitAllocator.bestFit
-                                 FirstFitAllocator.LazyCoalescing
-                                 (Alloc.range 0 (fromIntegral (numberOfSampleBuffers os))))
-        cid = BusIdAllocator (FirstFitAllocator.bestFit
-                              FirstFitAllocator.LazyCoalescing
-                              (Alloc.range 0 (fromIntegral (numberOfControlBusChannels os))))
-        aid = BusIdAllocator (FirstFitAllocator.bestFit
-                              FirstFitAllocator.LazyCoalescing
-                              (Alloc.range
-                                (fromIntegral numHardwareChannels)
-                                (fromIntegral (numHardwareChannels + numberOfAudioBusChannels os))))
-        numHardwareChannels = numberOfInputBusChannels os
-                            + numberOfOutputBusChannels os
+  Allocators {
+      syncIdAllocator =
+        SyncIdAllocator $
+          SimpleAllocator.cons
+            (Range.range 0 (maxBound :: SyncId))
+    , nodeIdAllocator =
+        NodeIdAllocator $
+          SetAllocator.cons
+            (Range.range 1000 (1000 + fromIntegral (maxNumberOfNodes os)))
+    , bufferIdAllocator =
+        BufferIdAllocator $
+          FirstFitAllocator.bestFit
+            FirstFitAllocator.LazyCoalescing
+            (Range.range 0 (fromIntegral (numberOfSampleBuffers os)))
+    , controlBusIdAllocator =
+        ControlBusIdAllocator $
+          FirstFitAllocator.bestFit
+            FirstFitAllocator.LazyCoalescing
+            (Range.range 0 (fromIntegral (numberOfControlBusChannels os)))
+    , audioBusIdAllocator =
+        AudioBusIdAllocator $
+          FirstFitAllocator.bestFit
+            FirstFitAllocator.LazyCoalescing
+            (Range.range
+              (fromIntegral numHardwareChannels)
+              (fromIntegral (numHardwareChannels + numberOfAudioBusChannels os)))
+  }
+  where
+    numHardwareChannels = numberOfInputBusChannels os
+                        + numberOfOutputBusChannels os

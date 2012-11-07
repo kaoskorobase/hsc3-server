@@ -15,7 +15,8 @@ import           Control.Arrow (first)
 import           Control.DeepSeq (NFData(..))
 import           Control.Failure (Failure, failure)
 import           Control.Monad (liftM)
-import           Sound.SC3.Server.Allocator
+import           Sound.SC3.Server.Allocator (AllocFailure(..), Id, IdAllocator(..), RangeAllocator(..), Statistics(..))
+import           Sound.SC3.Server.Allocator.Range (Range)
 import qualified Sound.SC3.Server.Allocator.Range as Range
 import           Sound.SC3.Server.Allocator.BlockAllocator.FreeList (FreeList, Sorting(..))
 import qualified Sound.SC3.Server.Allocator.BlockAllocator.FreeList as FreeList
@@ -83,7 +84,7 @@ _statistics a =
 instance (Integral i) => IdAllocator (FirstFitAllocator i) where
     type Id (FirstFitAllocator i) = i
     alloc = liftM (first Range.begin) . _alloc 1
-    free = _free . sized 1
+    free = _free . Range.sized 1
     statistics = _statistics
 
 instance (Integral i) => RangeAllocator (FirstFitAllocator i) where

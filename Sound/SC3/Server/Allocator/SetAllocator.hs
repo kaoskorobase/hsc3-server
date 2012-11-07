@@ -6,10 +6,12 @@ module Sound.SC3.Server.Allocator.SetAllocator (
   , cons
 ) where
 
-import Control.Failure (Failure, failure)
-import Control.DeepSeq (NFData(..))
+import           Control.Failure (Failure, failure)
+import           Control.DeepSeq (NFData(..))
 import qualified Data.BitSet as Set
-import Sound.SC3.Server.Allocator
+import           Sound.SC3.Server.Allocator (AllocFailure(..), IdAllocator(..), Statistics(..))
+import           Sound.SC3.Server.Allocator.Range (Range)
+import qualified Sound.SC3.Server.Allocator.Range as Range
 
 data SetAllocator i =
     SetAllocator
@@ -25,21 +27,21 @@ instance NFData i => NFData (SetAllocator i) where
         rnf x3 `seq` ()
 
 cons :: Range i -> SetAllocator i
-cons r = SetAllocator r Set.empty (begin r)
+cons r = SetAllocator r Set.empty (Range.begin r)
 
 -- | Convert an id to a bit index.
 --
 -- This is necessary to keep the BitSet size bounded between [0, numIds[.
 toBit :: Integral i => Range i -> i -> i
-toBit r i = i - begin r
+toBit r i = i - Range.begin r
 
 findNext :: (Integral i) => SetAllocator i -> Maybe i
 findNext (SetAllocator r u i)
-    | fromIntegral (size r) == Set.size u = Nothing
+    | fromIntegral (Range.size r) == Set.size u = Nothing
     | otherwise = loop i
     where
-        wrap i = if i >= end r
-                    then begin r
+        wrap i = if i >= Range.end r
+                    then Range.begin r
                     else i
         loop !i = let i' = wrap (i+1)
                   in if Set.member (toBit r i') u
@@ -61,7 +63,7 @@ _free i (SetAllocator r u n) =
 
 _statistics :: (Integral i) => SetAllocator i -> Statistics
 _statistics (SetAllocator r u _) =
-    let k = fromIntegral (size r)
+    let k = fromIntegral (Range.size r)
         n = Set.size u
     in Statistics {
         numAvailable = k

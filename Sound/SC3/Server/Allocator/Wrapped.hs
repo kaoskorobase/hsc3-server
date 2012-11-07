@@ -11,8 +11,9 @@ module Sound.SC3.Server.Allocator.Wrapped (
 import           Control.Arrow (second)
 import           Control.Failure (Failure)
 import           Control.Monad (liftM)
-import           Sound.SC3.Server.Allocator (AllocFailure, Id, IdAllocator, Range, RangeAllocator, Statistics)
+import           Sound.SC3.Server.Allocator (AllocFailure, Id, IdAllocator, RangeAllocator, Statistics)
 import qualified Sound.SC3.Server.Allocator as Alloc
+import           Sound.SC3.Server.Allocator.Range (Range)
 
 alloc :: (Failure AllocFailure m, IdAllocator a) =>
     (a -> a') -> a -> m (Id a, a')
