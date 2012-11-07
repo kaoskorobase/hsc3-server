@@ -21,7 +21,7 @@ module Sound.SC3.Server.Allocator.Range (
 import Control.DeepSeq (NFData(..))
 import Prelude hiding (last, null)
 
--- | Model intervals [begin, end[
+-- | Open ended interval [begin, end).
 data Range a = Range {
     begin :: !a
   , end :: !a
