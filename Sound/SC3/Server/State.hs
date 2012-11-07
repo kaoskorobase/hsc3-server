@@ -1,8 +1,7 @@
-{-# LANGUAGE
-    ExistentialQuantification
-  , GADTs
-  , GeneralizedNewtypeDeriving
-  , TypeFamilies #-}
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | Data type for holding server state.
 --
