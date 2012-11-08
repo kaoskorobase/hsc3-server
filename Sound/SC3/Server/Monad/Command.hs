@@ -73,13 +73,13 @@ module Sound.SC3.Server.Monad.Command
   , b_queryM
   -- ** Buses
   , Bus(..)
-  , busId
-  , numChannels
-  , AudioBus(..)
+  , AudioBus(audioBusIdRange)
+  , audioBusId
   , inputBus
   , outputBus
   , newAudioBus
-  , ControlBus(..)
+  , ControlBus(controlBusIdRange)
+  , controlBusId
   , newControlBus
   ) where
 
@@ -104,6 +104,7 @@ import qualified Sound.SC3.Server.Command as C
 import qualified Sound.SC3.Server.Command.Completion as C
 import qualified Sound.SC3.Server.Notification as N
 import           Sound.SC3.Server.Process.Options (ServerOptions(..))
+import           Sound.SC3.Server.State (AudioBusId, BufferId, ControlBusId, NodeId)
 
 -- ====================================================================
 -- Utils
@@ -215,7 +216,7 @@ instance BusMapping n ControlBus where
     n_map n c b = send msg
         where
             nid = fromIntegral (nodeId n)
-            bid = fromIntegral (busId b)
+            bid = fromIntegral (controlBusId b)
             msg = if numChannels b > 1
                   then C.n_mapn nid [(c, bid, numChannels b)]
                   else C.n_map  nid [(c, bid)]
@@ -230,7 +231,7 @@ instance BusMapping n AudioBus where
     n_map n c b = send msg
         where
             nid = fromIntegral (nodeId n)
-            bid = fromIntegral (busId b)
+            bid = fromIntegral (audioBusId b)
             msg = if numChannels b > 1
                   then C.n_mapan nid [(c, bid, numChannels b)]
                   else C.n_mapa  nid [(c, bid)]
@@ -451,26 +452,22 @@ b_queryM = get . b_query
 -- | Abstract interface for control and audio rate buses.
 class Bus a where
     rate :: a -> Rate
-    busIdRange :: a -> Range BusId
+    numChannels :: a -> Int
     freeBus :: (MonadServer m, MonadIdAllocator m) => a -> m ()
 
--- | Bus id.
-busId :: Bus a => a -> BusId
-busId = Range.begin . busIdRange
-
--- | Number of channels of the bus.
-numChannels :: Bus a => a -> Int
-numChannels = Range.size . busIdRange
-
 -- | Audio bus.
-newtype AudioBus = AudioBus { audioBusId :: Range BusId } deriving (Eq, Show)
+newtype AudioBus = AudioBus { audioBusIdRange :: Range AudioBusId } deriving (Eq, Show)
+
+audioBusId :: AudioBus -> AudioBusId
+audioBusId = Range.begin . audioBusIdRange
 
 instance Bus AudioBus where
     rate _ = AR
-    busIdRange = audioBusId
+    --busIdRange = audioBusId
+    numChannels = Range.size . audioBusIdRange
     freeBus b = do
         hw <- isHardwareBus b
-        unless hw $ M.freeRange M.audioBusIdAllocator (audioBusId b)
+        unless hw $ M.freeRange M.audioBusIdAllocator (audioBusIdRange b)
 
 -- | Allocate audio bus with the specified number of channels.
 newAudioBus :: MonadIdAllocator m => Int -> m AudioBus
@@ -481,7 +478,7 @@ isHardwareBus :: MonadServer m => AudioBus -> m Bool
 isHardwareBus b = do
     no <- serverOption numberOfOutputBusChannels
     ni <- serverOption numberOfInputBusChannels
-    return $ busId b >= 0 && busId b < fromIntegral (no + ni)
+    return $ audioBusId b >= 0 && audioBusId b < fromIntegral (no + ni)
 
 -- | Get hardware input bus.
 inputBus :: (MonadServer m, Failure AllocFailure m) => Int -> Int -> m AudioBus
@@ -503,12 +500,16 @@ outputBus n i = do
         else return (AudioBus r)
 
 -- | Control bus.
-newtype ControlBus = ControlBus { controlBusId :: Range BusId } deriving (Eq, Show)
+newtype ControlBus = ControlBus { controlBusIdRange :: Range ControlBusId } deriving (Eq, Show)
+
+controlBusId :: ControlBus -> ControlBusId
+controlBusId = Range.begin . controlBusIdRange
 
 instance Bus ControlBus where
     rate _ = KR
-    busIdRange = controlBusId
-    freeBus = M.freeRange M.controlBusIdAllocator . controlBusId
+    --busIdRange = controlBusId
+    numChannels = Range.size . controlBusIdRange
+    freeBus = M.freeRange M.controlBusIdAllocator . controlBusIdRange
 
 -- | Allocate control bus with the specified number of channels.
 newControlBus :: MonadIdAllocator m => Int -> m ControlBus

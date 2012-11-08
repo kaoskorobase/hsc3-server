@@ -85,32 +85,53 @@ instance RangeAllocator BufferIdAllocator where
 instance NFData BufferIdAllocator where
     rnf (BufferIdAllocator a) = rnf a `seq` ()
 
--- | Bus id.
-newtype BusId = BusId Int32 deriving (Bounded, Enum, Eq, Integral, NFData, Num, Ord, Real, Show)
+-- | Control bus id.
+newtype ControlBusId = ControlBusId Int32
+                     deriving (Bounded, Enum, Eq, Integral, NFData, Num, Ord, Real, Show)
 
--- | Bus id allocator.
-data BusIdAllocator = forall a . (RangeAllocator a, NFData a, Id a ~ BusId) => BusIdAllocator !a
+-- | Control bus id allocator.
+data ControlBusIdAllocator = forall a . (RangeAllocator a, NFData a, Id a ~ ControlBusId) => ControlBusIdAllocator !a
 
-instance IdAllocator BusIdAllocator where
-    type Id BusIdAllocator = BusId
-    alloc  (BusIdAllocator a) = Wrapped.alloc BusIdAllocator a
-    free i (BusIdAllocator a) = Wrapped.free BusIdAllocator i a
-    statistics (BusIdAllocator a) = Wrapped.statistics a
+instance IdAllocator ControlBusIdAllocator where
+    type Id ControlBusIdAllocator = ControlBusId
+    alloc  (ControlBusIdAllocator a) = Wrapped.alloc ControlBusIdAllocator a
+    free i (ControlBusIdAllocator a) = Wrapped.free ControlBusIdAllocator i a
+    statistics (ControlBusIdAllocator a) = Wrapped.statistics a
 
-instance RangeAllocator BusIdAllocator where
-    allocRange n (BusIdAllocator a) = Wrapped.allocRange BusIdAllocator n a
-    freeRange r (BusIdAllocator a) = Wrapped.freeRange BusIdAllocator r a
+instance RangeAllocator ControlBusIdAllocator where
+    allocRange n (ControlBusIdAllocator a) = Wrapped.allocRange ControlBusIdAllocator n a
+    freeRange r (ControlBusIdAllocator a) = Wrapped.freeRange ControlBusIdAllocator r a
 
-instance NFData BusIdAllocator where
-    rnf (BusIdAllocator a) = rnf a `seq` ()
+instance NFData ControlBusIdAllocator where
+    rnf (ControlBusIdAllocator a) = rnf a `seq` ()
+
+-- | Audio bus id.
+newtype AudioBusId = AudioBusId Int32
+                     deriving (Bounded, Enum, Eq, Integral, NFData, Num, Ord, Real, Show)
+
+-- | Audio bus id allocator.
+data AudioBusIdAllocator = forall a . (RangeAllocator a, NFData a, Id a ~ AudioBusId) => AudioBusIdAllocator !a
+
+instance IdAllocator AudioBusIdAllocator where
+    type Id AudioBusIdAllocator = AudioBusId
+    alloc  (AudioBusIdAllocator a) = Wrapped.alloc AudioBusIdAllocator a
+    free i (AudioBusIdAllocator a) = Wrapped.free AudioBusIdAllocator i a
+    statistics (AudioBusIdAllocator a) = Wrapped.statistics a
+
+instance RangeAllocator AudioBusIdAllocator where
+    allocRange n (AudioBusIdAllocator a) = Wrapped.allocRange AudioBusIdAllocator n a
+    freeRange r (AudioBusIdAllocator a) = Wrapped.freeRange AudioBusIdAllocator r a
+
+instance NFData AudioBusIdAllocator where
+    rnf (AudioBusIdAllocator a) = rnf a `seq` ()
 
 -- | Server allocators.
 data Allocators = Allocators {
     syncIdAllocator       :: SyncIdAllocator
   , nodeIdAllocator       :: NodeIdAllocator
   , bufferIdAllocator     :: BufferIdAllocator
-  , controlBusIdAllocator :: ControlBusIdAllocator
   , audioBusIdAllocator   :: AudioBusIdAllocator
+  , controlBusIdAllocator :: ControlBusIdAllocator
   }
 
 -- | Create a new state with default allocators.
@@ -130,11 +151,6 @@ mkAllocators os =
           FirstFitAllocator.bestFit
             FirstFitAllocator.LazyCoalescing
             (Range.range 0 (fromIntegral (numberOfSampleBuffers os)))
-    , controlBusIdAllocator =
-        ControlBusIdAllocator $
-          FirstFitAllocator.bestFit
-            FirstFitAllocator.LazyCoalescing
-            (Range.range 0 (fromIntegral (numberOfControlBusChannels os)))
     , audioBusIdAllocator =
         AudioBusIdAllocator $
           FirstFitAllocator.bestFit
@@ -142,6 +158,11 @@ mkAllocators os =
             (Range.range
               (fromIntegral numHardwareChannels)
               (fromIntegral (numHardwareChannels + numberOfAudioBusChannels os)))
+    , controlBusIdAllocator =
+        ControlBusIdAllocator $
+          FirstFitAllocator.bestFit
+            FirstFitAllocator.LazyCoalescing
+            (Range.range 0 (fromIntegral (numberOfControlBusChannels os)))
   }
   where
     numHardwareChannels = numberOfInputBusChannels os

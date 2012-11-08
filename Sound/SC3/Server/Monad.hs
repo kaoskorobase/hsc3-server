@@ -19,10 +19,12 @@ module Sound.SC3.Server.Monad
   , BufferId
   , BufferIdAllocator
   , bufferIdAllocator
-  , BusId
-  , BusIdAllocator
   , audioBusIdAllocator
   , controlBusIdAllocator
+  , ControlBusId
+  , ControlBusIdAllocator
+  , AudioBusId
+  , AudioBusIdAllocator
   , NodeId
   , NodeIdAllocator
   , nodeIdAllocator
@@ -61,8 +63,9 @@ import           Sound.SC3.Server.Connection (Connection)
 import qualified Sound.SC3.Server.Connection as C
 import           Sound.SC3.Server.Notification (Notification, synced)
 import           Sound.SC3.Server.Process.Options (ServerOptions)
-import           Sound.SC3.Server.State ( BufferId, BufferIdAllocator 
-                                        , BusId, BusIdAllocator
+import           Sound.SC3.Server.State ( AudioBusId, AudioBusIdAllocator
+                                        , BufferId, BufferIdAllocator
+                                        , ControlBusId, ControlBusIdAllocator
                                         , NodeId, NodeIdAllocator
                                         , SyncId, SyncIdAllocator
                                         )
@@ -74,8 +77,8 @@ data State = State {
   , _syncIdAllocator       :: MVar SyncIdAllocator
   , _nodeIdAllocator       :: MVar NodeIdAllocator
   , _bufferIdAllocator     :: MVar BufferIdAllocator
-  , _controlBusIdAllocator :: MVar BusIdAllocator
-  , _audioBusIdAllocator   :: MVar BusIdAllocator
+  , _audioBusIdAllocator   :: MVar AudioBusIdAllocator
+  , _controlBusIdAllocator :: MVar ControlBusIdAllocator
   }
 
 newtype ServerT m a = ServerT { unServerT :: ReaderT State m a }
@@ -125,8 +128,8 @@ runServerT (ServerT r) so c =
       `ap` new State.syncIdAllocator
       `ap` new State.nodeIdAllocator
       `ap` new State.bufferIdAllocator
-      `ap` new State.controlBusIdAllocator
       `ap` new State.audioBusIdAllocator
+      `ap` new State.controlBusIdAllocator
       >>= runReaderT (init >> r)
     where 
         as = State.mkAllocators so
