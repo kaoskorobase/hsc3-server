@@ -4,19 +4,13 @@ module Sound.SC3.Server.Monad.Class (
   MonadServer(..)
 , serverOption
 , MonadIdAllocator(..)
-, allocMany
-, freeMany
 , MonadSendOSC(..)
 , MonadRecvOSC(..)
 ) where
 
---import           Control.Exception.Lifted (mask, onException)
-import           Control.Failure (Failure)
-import           Control.Monad (liftM, replicateM)
---import           Control.Monad.Trans.Control (MonadBaseControl)
+import           Control.Monad (liftM)
 import           Sound.OpenSoundControl (OSC)
-import           Sound.SC3.Server.Allocator (AllocFailure, Id, IdAllocator, RangeAllocator)
---import qualified Sound.SC3.Server.Allocator as Alloc
+import           Sound.SC3.Server.Allocator (Id, IdAllocator, RangeAllocator)
 import           Sound.SC3.Server.Allocator.Range (Range)
 import           Sound.SC3.Server.Notification (Notification)
 import           Sound.SC3.Server.State ( AudioBusIdAllocator
@@ -55,14 +49,6 @@ class Monad m => MonadIdAllocator m where
   allocRange :: RangeAllocator a => Allocator m a -> Int -> m (Range (Id a))
   -- | Free a contiguous range of ids using the given allocator.
   freeRange :: RangeAllocator a => Allocator m a -> Range (Id a) -> m ()
-
--- | Allocate a number of ids using the given allocator.
-allocMany :: (IdAllocator a, Failure AllocFailure m, MonadIdAllocator m) => Allocator m a -> Int -> m [Id a]
-allocMany a n = replicateM n (alloc a)
-
--- | Free a number of ids using the given allocator.
-freeMany :: (IdAllocator a, Failure AllocFailure m, MonadIdAllocator m) => Allocator m a -> [Id a] -> m ()
-freeMany a = mapM_ (free a)
 
 class Monad m => MonadSendOSC m where
   send :: OSC -> m ()

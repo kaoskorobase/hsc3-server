@@ -16,9 +16,6 @@ module Sound.SC3.Server.Allocator (
 
 import           Control.Exception (Exception)
 import           Control.Failure (Failure)
-import           Control.Monad (foldM, replicateM)
-import qualified Control.Monad.Trans.Class as State
-import qualified Control.Monad.Trans.State.Strict as State
 import           Data.Typeable (Typeable)
 import           Sound.SC3.Server.Allocator.Range
 
@@ -66,20 +63,6 @@ class IdAllocator a where
   -- Freeing an identifier that hasn't been allocated with this allocator may
   -- trigger a failure.
   free  :: Failure AllocFailure m => Id a -> a -> m a
-
-  -- | Allocate a number of - not necessarily consecutive - identifiers and
-  --   return the changed allocator.
-  allocMany :: Failure AllocFailure m => Int -> a -> m ([Id a], a)
-  allocMany n = State.runStateT (replicateM n (modifyM alloc))
-    where
-      modifyM f = do
-        (a, s') <- State.get >>= State.lift . f
-        State.put $! s'
-        return a
-
-  -- | Free a list of previously allocated identifiers.
-  freeMany :: Failure AllocFailure m => [Id a] -> a -> m a
-  freeMany = flip (foldM (flip free))
 
   -- | Return usage statistics.
   statistics :: a -> Statistics

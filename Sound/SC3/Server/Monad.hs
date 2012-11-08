@@ -22,8 +22,6 @@ module Sound.SC3.Server.Monad
   , NodeId
   , NodeIdAllocator
   , MonadIdAllocator(..)
-  , allocMany
-  , freeMany
   -- * Communication and synchronization
   , MonadSendOSC(..)
   , MonadRecvOSC(..)
