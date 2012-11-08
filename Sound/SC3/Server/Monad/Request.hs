@@ -11,6 +11,7 @@ module Sound.SC3.Server.Monad.Request (
 , AllocT
 , after
 , after_
+, waitFor
 , finally
 , mkAsync
 , mkAsync_
@@ -132,7 +133,7 @@ extract :: MonadIO m => Result a -> m a
 extract (Result a) = liftIO a
 
 -- | Register a cleanup action that is executed after the notification has been
--- received and return the deferred notification result.
+-- received and return the notification result.
 after :: MonadIO m => Notification a -> AllocT m () -> Request m (Result a)
 after n (AllocT m) = do
   v <- lift $ liftIO $ newIORef (error "BUG: after: uninitialized IORef")
@@ -146,6 +147,10 @@ after_ :: Monad m => Notification a -> AllocT m () -> Request m ()
 after_ n (AllocT m) =
   modify $ \s -> s { notifications = fmap (const (return ())) n : notifications s
                    , cleanup = cleanup s >> m }
+
+-- | Wait for a notification and return the result.
+waitFor :: MonadIO m => Notification a -> Request m (Result a)
+waitFor n = after n (return ())
 
 -- | Register a cleanup action that is executed after all asynchronous commands
 -- and notifications have been performed.
@@ -164,7 +169,8 @@ mkAsync (AllocT m) = do
                    , needsSync = True }
   return a
 
--- | Create an asynchronous command from an OSC function that has side effects only on the server.
+-- | Create an asynchronous command from an OSC function that has side effects
+--   only on the server.
 mkAsync_ :: Monad m => (Maybe OSC -> OSC) -> Request m ()
 mkAsync_ f = mkAsync $ return ((), f)
 
