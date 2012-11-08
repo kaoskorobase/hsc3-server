@@ -1,7 +1,6 @@
-{-# LANGUAGE
-    DeriveDataTypeable
-  , FlexibleContexts
-  , TypeFamilies #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Sound.SC3.Server.Allocator (
   -- *Allocation errors

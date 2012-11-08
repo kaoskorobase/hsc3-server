@@ -1,6 +1,6 @@
-{-# LANGUAGE BangPatterns
-           , FlexibleContexts
-           , TypeFamilies #-}
+{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TypeFamilies #-}
 module Sound.SC3.Server.Allocator.SetAllocator (
     SetAllocator
   , cons

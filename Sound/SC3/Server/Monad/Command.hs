@@ -1,8 +1,8 @@
-{-# LANGUAGE ExistentialQuantification
-           , FlexibleContexts
-           , FlexibleInstances
-           , GeneralizedNewtypeDeriving
-           , MultiParamTypeClasses #-}
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 module Sound.SC3.Server.Monad.Command
   (
   -- * Requests

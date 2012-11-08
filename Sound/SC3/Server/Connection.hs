@@ -1,6 +1,7 @@
-{-# LANGUAGE ExistentialQuantification
-           , FlexibleContexts
-           , GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+
 -- | A 'Connection' encapsulates the communication with the synthesis server.
 -- This module provides functions for opening and closing connections, as well
 -- as communication and synchronisation primitives.

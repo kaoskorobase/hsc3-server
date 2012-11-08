@@ -1,8 +1,8 @@
 {-# LANGUAGE ExistentialQuantification
-           , FlexibleContexts
-           , GADTs
-           , ScopedTypeVariables
-           , TypeFamilies #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies #-}
 module Sound.SC3.Server.Allocator.Test
     (
         tests
