@@ -36,9 +36,8 @@ import           Control.Applicative (Alternative, Applicative)
 import           Control.Concurrent (ThreadId)
 import qualified Control.Concurrent as Conc
 import           Control.Concurrent.MVar (MVar, newMVar, modifyMVar)
-import           Control.Failure (Failure)
 import           Control.Monad (MonadPlus, ap, liftM, replicateM)
---import           Control.Monad.Base (MonadBase(..), liftBaseDefault)
+import           Control.Monad.Base (MonadBase(..), liftBaseDefault)
 import           Control.Monad.Fix (MonadFix)
 import           Control.Monad.IO.Class (MonadIO, liftIO)
 import           Control.Monad.Trans.Reader (ReaderT(..))
@@ -47,7 +46,6 @@ import qualified Control.Monad.Trans.Reader as R
 import           Control.Monad.Trans.Class (MonadTrans(..))
 --import           Control.Monad.Trans.Control
 import           Sound.OpenSoundControl (Datum(..), OSC(..), immediately)
-import           Sound.SC3.Server.Allocator (AllocFailure)
 import qualified Sound.SC3.Server.Allocator as A
 --import           Sound.SC3.Server.Allocator.Range (Range)
 import           Sound.SC3.Server.Command (notify)
@@ -98,7 +96,7 @@ type Server = ServerT IO
 --     restoreM = defaultRestoreM   unStMT
 
 -- | Run a 'ServerT' computation given a connection and return the result.
-runServerT :: (Failure AllocFailure m, MonadIO m) => ServerT m a -> ServerOptions -> Connection -> m a
+runServerT :: MonadIO m => ServerT m a -> ServerOptions -> Connection -> m a
 runServerT (ServerT r) so c =
   return (State so c)
     `ap` new State.syncIdAllocator
@@ -198,7 +196,7 @@ appendSync p i =
   where s = Message "/sync" [Int (fromIntegral i)]
 
 -- | Send an OSC packet and wait for the synchronization barrier.
-sync :: (Failure A.AllocFailure m, MonadIO m) => OSC -> ServerT m ()
+sync :: MonadIO m => OSC -> ServerT m ()
 sync osc = do
   i <- alloc syncIdAllocator
   waitFor_ (osc `appendSync` i) (synced i)
@@ -206,7 +204,7 @@ sync osc = do
 
 -- NOTE: This is only guaranteed to work with a transport that preserves
 -- packet order. NOTE 2: And not even then ;)
-unsafeSync :: (Failure A.AllocFailure m, MonadIO m) => ServerT m ()
+unsafeSync :: MonadIO m => ServerT m ()
 unsafeSync = sync (Bundle immediately [])
 
 -- | Fork a computation in a new thread and return the thread id.
