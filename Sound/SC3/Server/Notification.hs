@@ -11,10 +11,12 @@ module Sound.SC3.Server.Notification (
   , headNodeId, tailNodeId
   , n_go , n_end , n_off , n_on , n_move , n_info
   , n_go_, n_end_, n_off_, n_on_
+  , n_set, n_setn
   , BufferInfo(..)
   , b_info
 ) where
 
+import Control.Applicative (pure, (<*>))
 import Sound.SC3.Server.State (BufferId, NodeId, SyncId)
 import Sound.OpenSoundControl (OSC(..), Datum(..))
 
@@ -164,6 +166,30 @@ n_off_ = n_notification_ "/n_off"
 
 n_on_ :: NodeId -> Notification ()
 n_on_ = n_notification_ "/n_on"
+
+n_set :: NodeId -> Notification [(Either Int String, Double)]
+n_set nid = Notification f
+  where
+    f (Message "/n_set" (Int nid':cs))
+      | nid == fromIntegral nid' = mapM ctrl (pairs cs)
+    f _ = Nothing
+    pairs (a:a':as) = (a, a') : pairs as
+    pairs _ = []
+    ctrl (Int k, Float v) = Just (Left k, v)
+    ctrl (String k, Float v) = Just (Right k, v)
+    ctrl _ = Nothing
+
+n_setn :: NodeId -> Notification [(Either Int String, [Double])]
+n_setn nid = Notification f
+  where
+    f (Message "/n_setn" (Int nid':cs))
+      | nid == fromIntegral nid' = sequence (conv cs)
+    f _ = Nothing
+    value (Float v) = Just v
+    value _ = Nothing
+    conv (Int k:Int n:xs)    = (pure (,) <*> pure (Left k) <*> mapM value (take n xs)) : conv (drop n xs)
+    conv (String k:Int n:xs) = (pure (,) <*> pure (Right k) <*> mapM value (take n xs)) : conv (drop n xs)
+    conv _ = []
 
 data BufferInfo = BufferInfo {
     numFrames :: Int
