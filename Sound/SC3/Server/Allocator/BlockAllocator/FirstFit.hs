@@ -12,7 +12,6 @@ module Sound.SC3.Server.Allocator.BlockAllocator.FirstFit
   ) where
 
 import           Control.Arrow (first)
-import           Control.DeepSeq (NFData(..))
 import           Control.Failure (Failure, failure)
 import           Control.Monad (liftM)
 import           Sound.SC3.Server.Allocator (AllocFailure(..), Id, IdAllocator(..), RangeAllocator(..), Statistics(..))
@@ -29,9 +28,6 @@ data FirstFitAllocator i = FirstFitAllocator {
   , used :: !Int
   , freeList :: !(FreeList i)
   } deriving (Eq, Show)
-
-instance NFData i => NFData (FirstFitAllocator i) where
-    rnf (FirstFitAllocator x1 x2 x3 x4) = x1 `seq` rnf x2 `seq` rnf x3 `seq` rnf x4 `seq` ()
 
 cons :: Integral i => Sorting -> Coalescing -> Range i -> FirstFitAllocator i
 cons s c r = FirstFitAllocator c (fromIntegral (Range.size r)) 0 (FreeList.singleton s r)

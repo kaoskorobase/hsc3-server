@@ -5,7 +5,6 @@ module Sound.SC3.Server.Allocator.SimpleAllocator (
   , cons
 ) where
 
-import           Control.DeepSeq (NFData(..))
 import           Control.Failure (Failure, failure)
 import           Sound.SC3.Server.Allocator
 import           Sound.SC3.Server.Allocator.Range (Range)
@@ -17,9 +16,6 @@ data SimpleAllocator i =
         {-# UNPACK #-}!Int
                       !i
         deriving (Eq, Show)
-
-instance NFData i => NFData (SimpleAllocator i) where
-    rnf (SimpleAllocator x1 x2 x3) = rnf x1 `seq` rnf x2 `seq` rnf x3 `seq` ()
 
 cons :: Range i -> SimpleAllocator i
 cons r = SimpleAllocator r 0 (Range.begin r)

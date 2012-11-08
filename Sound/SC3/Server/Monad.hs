@@ -38,8 +38,7 @@ module Sound.SC3.Server.Monad
 import           Control.Applicative (Alternative, Applicative)
 import           Control.Concurrent (ThreadId)
 import qualified Control.Concurrent as Conc
-import           Control.Concurrent.MVar.Strict
-import           Control.DeepSeq (NFData)
+import           Control.Concurrent.MVar (MVar, newMVar, modifyMVar)
 import           Control.Failure (Failure)
 import           Control.Monad (MonadPlus, ap, liftM, replicateM)
 --import           Control.Monad.Base (MonadBase(..), liftBaseDefault)
@@ -113,7 +112,7 @@ runServerT (ServerT r) so c =
       >>= runReaderT (init >> r)
     where 
         as = State.mkAllocators so
-        new :: (NFData a, MonadIO m) => (State.Allocators -> a) -> m (MVar a)
+        new :: MonadIO m => (State.Allocators -> a) -> m (MVar a)
         new f = liftIO $ newMVar (f as)
         -- Register with server to receive notifications.
         (ServerT init) = sync (Bundle immediately [notify True])
@@ -132,14 +131,15 @@ instance Monad m => MonadServer (ServerT m) where
     serverOptions = ServerT $ R.asks _serverOptions
     rootNodeId    = return (fromIntegral 0)
 
---withAllocator :: (NFData a, MonadIO m) => (State -> MVar a) -> (a -> IO (b, a)) -> ServerT m b
+withAllocator :: MonadIO m => (State -> MVar a) -> (a -> IO (b, a)) -> ServerT m b
 withAllocator a f = ServerT $ do
     mv <- R.asks a
     liftIO $ modifyMVar mv $ \s -> do
         (i, s') <- f s
-        return $! (s', i)
+        -- Evaluate allocator before putting back to MVar
+        return $! s' `seq` (s', i)
 
---withAllocator_ :: (NFData a, MonadIO m) => (State -> MVar (AnyIdAllocator a)) -> (a -> IO a) -> ServerT m ()
+withAllocator_ :: MonadIO m => (State -> MVar a) -> (a -> IO a) -> ServerT m ()
 withAllocator_ a f = withAllocator a (liftM ((,)()) . f)
 
 instance MonadIO m => MonadIdAllocator (ServerT m) where

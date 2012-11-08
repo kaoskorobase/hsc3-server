@@ -10,7 +10,6 @@ module Sound.SC3.Server.Allocator.BlockAllocator.FreeList
   , coalesce
   ) where
 
-import           Control.DeepSeq (NFData(..))
 import           Data.Ord (comparing)
 import qualified Data.List as List
 import           Sound.SC3.Server.Allocator.Range (Range)
@@ -19,9 +18,6 @@ import qualified Sound.SC3.Server.Allocator.Range as Range
 data Sorting = Address | IncreasingSize | DecreasingSize deriving (Enum, Eq, Show)
 
 data FreeList i = FreeList Sorting [Range i] deriving (Eq, Show)
-
-instance NFData i => NFData (FreeList i) where
-    rnf (FreeList x1 x2) = x1 `seq` rnf x2 `seq` ()
 
 type SortFunc i = Range i -> Range i -> Ordering
 

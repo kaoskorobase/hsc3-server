@@ -18,7 +18,6 @@ module Sound.SC3.Server.Allocator.Range (
   , join
 ) where
 
-import Control.DeepSeq (NFData(..))
 import Prelude hiding (last, null)
 
 -- | Open ended interval [begin, end).
@@ -26,9 +25,6 @@ data Range a = Range {
     begin :: !a
   , end :: !a
   } deriving (Eq, Show)
-
-instance NFData a => NFData (Range a) where
-    rnf (Range x1 x2) = rnf x1 `seq` rnf x2 `seq` ()
 
 mkRange :: a -> a -> Range a
 mkRange a b = Range a b

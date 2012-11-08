@@ -7,7 +7,6 @@ module Sound.SC3.Server.Allocator.SetAllocator (
 ) where
 
 import           Control.Failure (Failure, failure)
-import           Control.DeepSeq (NFData(..))
 import qualified Data.BitSet as Set
 import           Sound.SC3.Server.Allocator (AllocFailure(..), IdAllocator(..), Statistics(..))
 import           Sound.SC3.Server.Allocator.Range (Range)
@@ -19,12 +18,6 @@ data SetAllocator i =
         {-# UNPACK #-} !(Set.BitSet i)
                        !i
         deriving (Eq, Show)
-
-instance NFData i => NFData (SetAllocator i) where
-    rnf (SetAllocator x1 x2 x3) =
-        rnf x1 `seq`
-            x2 `seq`
-        rnf x3 `seq` ()
 
 cons :: Range i -> SetAllocator i
 cons r = SetAllocator r Set.empty (Range.begin r)

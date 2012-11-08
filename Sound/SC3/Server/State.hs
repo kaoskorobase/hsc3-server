@@ -26,7 +26,6 @@ module Sound.SC3.Server.State (
 , mkAllocators
 ) where
 
-import           Control.DeepSeq (NFData(..))
 import           Data.Int (Int32)
 import           Sound.SC3.Server.Allocator (IdAllocator(..), RangeAllocator(..))
 import qualified Sound.SC3.Server.Allocator.BlockAllocator.FirstFit as FirstFitAllocator
@@ -37,10 +36,10 @@ import qualified Sound.SC3.Server.Allocator.Wrapped as Wrapped
 import           Sound.SC3.Server.Process.Options (ServerOptions(..))
 
 -- | Synchronisation barrier id.
-newtype SyncId = SyncId Int32 deriving (Bounded, Enum, Eq, Integral, NFData, Num, Ord, Real, Show)
+newtype SyncId = SyncId Int32 deriving (Bounded, Enum, Eq, Integral, Num, Ord, Real, Show)
 
 -- | Synchronisation barrier id allocator.
-data SyncIdAllocator = forall a . (IdAllocator a, NFData a, Id a ~ SyncId) => SyncIdAllocator !a
+data SyncIdAllocator = forall a . (IdAllocator a, Id a ~ SyncId) => SyncIdAllocator !a
 
 instance IdAllocator SyncIdAllocator where
     type Id SyncIdAllocator = SyncId
@@ -48,14 +47,11 @@ instance IdAllocator SyncIdAllocator where
     free i (SyncIdAllocator a) = Wrapped.free SyncIdAllocator i a
     statistics (SyncIdAllocator a) = Wrapped.statistics a
 
-instance NFData SyncIdAllocator where
-    rnf (SyncIdAllocator a) = rnf a `seq` ()
-
 -- | Node id.
-newtype NodeId = NodeId Int32 deriving (Bounded, Enum, Eq, Integral, NFData, Num, Ord, Real, Show)
+newtype NodeId = NodeId Int32 deriving (Bounded, Enum, Eq, Integral, Num, Ord, Real, Show)
 
 -- | Node id allocator.
-data NodeIdAllocator = forall a . (IdAllocator a, NFData a, Id a ~ NodeId) => NodeIdAllocator !a
+data NodeIdAllocator = forall a . (IdAllocator a, Id a ~ NodeId) => NodeIdAllocator !a
 
 instance IdAllocator NodeIdAllocator where
     type Id NodeIdAllocator = NodeId
@@ -63,14 +59,11 @@ instance IdAllocator NodeIdAllocator where
     free i (NodeIdAllocator a) = Wrapped.free NodeIdAllocator i a
     statistics (NodeIdAllocator a) = Wrapped.statistics a
 
-instance NFData NodeIdAllocator where
-    rnf (NodeIdAllocator a) = rnf a `seq` ()
-
 -- | Buffer id.
-newtype BufferId = BufferId Int32 deriving (Bounded, Enum, Eq, Integral, NFData, Num, Ord, Real, Show)
+newtype BufferId = BufferId Int32 deriving (Bounded, Enum, Eq, Integral, Num, Ord, Real, Show)
 
 -- | Buffer id allocator.
-data BufferIdAllocator = forall a . (RangeAllocator a, NFData a, Id a ~ BufferId) => BufferIdAllocator !a
+data BufferIdAllocator = forall a . (RangeAllocator a, Id a ~ BufferId) => BufferIdAllocator !a
 
 instance IdAllocator BufferIdAllocator where
     type Id BufferIdAllocator = BufferId
@@ -82,15 +75,12 @@ instance RangeAllocator BufferIdAllocator where
     allocRange n (BufferIdAllocator a) = Wrapped.allocRange BufferIdAllocator n a
     freeRange r (BufferIdAllocator a) = Wrapped.freeRange BufferIdAllocator r a
 
-instance NFData BufferIdAllocator where
-    rnf (BufferIdAllocator a) = rnf a `seq` ()
-
 -- | Control bus id.
 newtype ControlBusId = ControlBusId Int32
-                     deriving (Bounded, Enum, Eq, Integral, NFData, Num, Ord, Real, Show)
+                     deriving (Bounded, Enum, Eq, Integral, Num, Ord, Real, Show)
 
 -- | Control bus id allocator.
-data ControlBusIdAllocator = forall a . (RangeAllocator a, NFData a, Id a ~ ControlBusId) => ControlBusIdAllocator !a
+data ControlBusIdAllocator = forall a . (RangeAllocator a, Id a ~ ControlBusId) => ControlBusIdAllocator !a
 
 instance IdAllocator ControlBusIdAllocator where
     type Id ControlBusIdAllocator = ControlBusId
@@ -102,15 +92,12 @@ instance RangeAllocator ControlBusIdAllocator where
     allocRange n (ControlBusIdAllocator a) = Wrapped.allocRange ControlBusIdAllocator n a
     freeRange r (ControlBusIdAllocator a) = Wrapped.freeRange ControlBusIdAllocator r a
 
-instance NFData ControlBusIdAllocator where
-    rnf (ControlBusIdAllocator a) = rnf a `seq` ()
-
 -- | Audio bus id.
 newtype AudioBusId = AudioBusId Int32
-                     deriving (Bounded, Enum, Eq, Integral, NFData, Num, Ord, Real, Show)
+                     deriving (Bounded, Enum, Eq, Integral, Num, Ord, Real, Show)
 
 -- | Audio bus id allocator.
-data AudioBusIdAllocator = forall a . (RangeAllocator a, NFData a, Id a ~ AudioBusId) => AudioBusIdAllocator !a
+data AudioBusIdAllocator = forall a . (RangeAllocator a, Id a ~ AudioBusId) => AudioBusIdAllocator !a
 
 instance IdAllocator AudioBusIdAllocator where
     type Id AudioBusIdAllocator = AudioBusId
@@ -121,9 +108,6 @@ instance IdAllocator AudioBusIdAllocator where
 instance RangeAllocator AudioBusIdAllocator where
     allocRange n (AudioBusIdAllocator a) = Wrapped.allocRange AudioBusIdAllocator n a
     freeRange r (AudioBusIdAllocator a) = Wrapped.freeRange AudioBusIdAllocator r a
-
-instance NFData AudioBusIdAllocator where
-    rnf (AudioBusIdAllocator a) = rnf a `seq` ()
 
 -- | Server allocators.
 data Allocators = Allocators {

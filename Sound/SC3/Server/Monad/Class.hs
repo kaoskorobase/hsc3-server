@@ -10,7 +10,6 @@ module Sound.SC3.Server.Monad.Class (
 , MonadRecvOSC(..)
 ) where
 
-import           Control.DeepSeq (NFData)
 --import           Control.Exception.Lifted (mask, onException)
 import           Control.Failure (Failure)
 import           Control.Monad (liftM, replicateM)
@@ -49,20 +48,20 @@ class Monad m => MonadIdAllocator m where
   controlBusIdAllocator :: Allocator m ControlBusIdAllocator
 
   -- | Allocate an id using the given allocator.
-  alloc :: (IdAllocator a, NFData a) => Allocator m a -> m (Id a)
+  alloc :: IdAllocator a => Allocator m a -> m (Id a)
   -- | Free an id using the given allocator.
-  free :: (IdAllocator a, NFData a) => Allocator m a -> Id a -> m ()
+  free :: IdAllocator a => Allocator m a -> Id a -> m ()
   -- | Allocate a contiguous range of ids using the given allocator.
-  allocRange :: (RangeAllocator a, NFData a) => Allocator m a -> Int -> m (Range (Id a))
+  allocRange :: RangeAllocator a => Allocator m a -> Int -> m (Range (Id a))
   -- | Free a contiguous range of ids using the given allocator.
-  freeRange :: (RangeAllocator a, NFData a) => Allocator m a -> Range (Id a) -> m ()
+  freeRange :: RangeAllocator a => Allocator m a -> Range (Id a) -> m ()
 
 -- | Allocate a number of ids using the given allocator.
-allocMany :: (IdAllocator a, NFData a, Failure AllocFailure m, MonadIdAllocator m) => Allocator m a -> Int -> m [Id a]
+allocMany :: (IdAllocator a, Failure AllocFailure m, MonadIdAllocator m) => Allocator m a -> Int -> m [Id a]
 allocMany a n = replicateM n (alloc a)
 
 -- | Free a number of ids using the given allocator.
-freeMany :: (IdAllocator a, NFData a, Failure AllocFailure m, MonadIdAllocator m) => Allocator m a -> [Id a] -> m ()
+freeMany :: (IdAllocator a, Failure AllocFailure m, MonadIdAllocator m) => Allocator m a -> [Id a] -> m ()
 freeMany a = mapM_ (free a)
 
 class Monad m => MonadSendOSC m where
