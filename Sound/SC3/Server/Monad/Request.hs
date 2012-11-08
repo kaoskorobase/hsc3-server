@@ -1,4 +1,6 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE TypeFamilies #-}
 module Sound.SC3.Server.Monad.Request (
   Request
 , runRequest
@@ -19,10 +21,10 @@ import           Control.Applicative (Applicative)
 import           Control.Monad.IO.Class (MonadIO(..))
 import qualified Control.Monad.Trans.Class as Trans
 import qualified Control.Monad.Trans.State as State
-import           Data.IORef
+import           Data.IORef (newIORef, readIORef, writeIORef)
 import qualified Sound.SC3.Server.Command as C
-import           Sound.SC3.Server.Monad (MonadIdAllocator, MonadRecvOSC, MonadSendOSC, MonadServer)
-import qualified Sound.SC3.Server.Monad as M
+import           Sound.SC3.Server.Monad.Class (MonadIdAllocator(..), MonadRecvOSC, MonadSendOSC, MonadServer)
+import qualified Sound.SC3.Server.Monad.Class as M
 import           Sound.SC3.Server.Notification (Notification)
 import qualified Sound.SC3.Server.Notification as N
 import           Sound.OpenSoundControl (OSC(..), Time, immediately)
@@ -61,24 +63,6 @@ emptyState = State [] [] (return ()) False
 newtype Request m a = Request (State.StateT (State m) m a)
                         deriving (Applicative, Functor, Monad)
 
-instance MonadServer m => MonadServer (Request m) where
-    serverOptions = lift M.serverOptions
-
-instance MonadIdAllocator m => MonadIdAllocator (Request m) where
-    rootNodeId = lift M.rootNodeId
-    alloc = lift . M.alloc
-    free a = lift . M.free a
-    allocMany a = lift . M.allocMany a
-    freeMany a = lift . M.freeMany a
-    allocRange a = lift . M.allocRange a
-    freeRange a = lift . M.freeRange a
-
--- | Bundles are flattened into the resulting bundle because @scsynth@ doesn't
--- support nested bundles.
-instance Monad m => MonadSendOSC (Request m) where
-    send osc@(Message _ _) = modify $ \s -> s { requests = BuildSync osc : requests s }
-    send (Bundle _ xs)     = mapM_ M.send xs
-
 -- | Lift a ServerT action into Request.
 --
 -- This is potentially unsafe and should only be used for the allocation of
@@ -95,11 +79,47 @@ gets = Request . State.gets
 modify :: Monad m => (State m -> State m) -> Request m ()
 modify = Request . State.modify
 
---newtype AsyncT m a = AsyncT (Request m (Maybe OSC -> OSC, a))
+instance MonadServer m => MonadServer (Request m) where
+  serverOptions = lift M.serverOptions
+  rootNodeId = lift M.rootNodeId
+
+instance MonadIdAllocator m => MonadIdAllocator (Request m) where
+  newtype Allocator (Request m) a = Request_Allocator (Allocator m a)
+
+  nodeIdAllocator       = Request_Allocator nodeIdAllocator
+  syncIdAllocator       = Request_Allocator syncIdAllocator
+  bufferIdAllocator     = Request_Allocator bufferIdAllocator
+  audioBusIdAllocator   = Request_Allocator audioBusIdAllocator
+  controlBusIdAllocator = Request_Allocator controlBusIdAllocator
+
+  alloc (Request_Allocator a)      = lift $ M.alloc a
+  free (Request_Allocator a)       = lift . M.free a
+  allocRange (Request_Allocator a) = lift . M.allocRange a
+  freeRange (Request_Allocator a)  = lift . M.freeRange a
+
+-- | Bundles are flattened into the resulting bundle because @scsynth@ doesn't
+-- support nested bundles.
+instance Monad m => MonadSendOSC (Request m) where
+  send osc@(Message _ _) = modify $ \s -> s { requests = BuildSync osc : requests s }
+  send (Bundle _ xs)     = mapM_ M.send xs
 
 -- | Allocation action newtype wrapper.
 newtype AllocT m a = AllocT (m a)
-                     deriving (Applicative, Functor, MonadIdAllocator, Monad)
+                     deriving (Applicative, Functor, Monad)
+
+instance MonadIdAllocator m => MonadIdAllocator (AllocT m) where
+  newtype Allocator (AllocT m) a = AllocT_Allocator (Allocator m a)
+
+  nodeIdAllocator       = AllocT_Allocator nodeIdAllocator
+  syncIdAllocator       = AllocT_Allocator syncIdAllocator
+  bufferIdAllocator     = AllocT_Allocator bufferIdAllocator
+  audioBusIdAllocator   = AllocT_Allocator audioBusIdAllocator
+  controlBusIdAllocator = AllocT_Allocator controlBusIdAllocator
+
+  alloc (AllocT_Allocator a)      = AllocT $ M.alloc a
+  free (AllocT_Allocator a)       = AllocT . M.free a
+  allocRange (AllocT_Allocator a) = AllocT . M.allocRange a
+  freeRange (AllocT_Allocator a)  = AllocT . M.freeRange a
 
 -- | Representation of a deferred server resource.
 --
@@ -116,17 +136,17 @@ extract (Result a) = liftIO a
 -- received and return the deferred notification result.
 after :: MonadIO m => Notification a -> AllocT m () -> Request m (Result a)
 after n (AllocT m) = do
-    v <- lift $ liftIO $ newIORef (error "BUG: after: uninitialized IORef")
-    modify $ \s -> s { notifications = fmap (liftIO . writeIORef v) n : notifications s
-                     , cleanup = cleanup s >> m }
-    return $ Result (readIORef v)
+  v <- lift $ liftIO $ newIORef (error "BUG: after: uninitialized IORef")
+  modify $ \s -> s { notifications = fmap (liftIO . writeIORef v) n : notifications s
+                   , cleanup = cleanup s >> m }
+  return $ Result (readIORef v)
 
 -- | Register a cleanup action, to be executed after a notification has been
 -- received and ignore the notification result.
 after_ :: Monad m => Notification a -> AllocT m () -> Request m ()
 after_ n (AllocT m) =
-    modify $ \s -> s { notifications = fmap (const (return ())) n : notifications s
-                     , cleanup = cleanup s >> m }
+  modify $ \s -> s { notifications = fmap (const (return ())) n : notifications s
+                   , cleanup = cleanup s >> m }
 
 -- | Register a cleanup action that is executed after all asynchronous commands
 -- and notifications have been performed.

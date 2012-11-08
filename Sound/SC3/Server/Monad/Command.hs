@@ -93,8 +93,8 @@ import           Sound.OpenSoundControl (OSC(..))
 import           Sound.SC3 (Rate(..), UGen)
 import           Sound.SC3.Server.Allocator.Range (Range)
 import qualified Sound.SC3.Server.Allocator.Range as Range
-import           Sound.SC3.Server.Monad (BufferId, BusId, MonadIdAllocator, MonadRecvOSC, MonadServer, NodeId, send, serverOption)
 import qualified Sound.SC3.Server.Monad as M
+import           Sound.SC3.Server.Monad.Class (MonadIdAllocator, MonadRecvOSC, MonadServer, send, serverOption)
 import           Sound.SC3.Server.Monad.Request (Request, Result, after, after_, finally, mkAsync, mkAsync_, mkSync)
 import qualified Sound.SC3.Server.Monad.Request as R
 import qualified Sound.SC3.Server.Synthdef as Synthdef
@@ -287,7 +287,7 @@ s_new d a g xs = do
     send $ C.s_new (name d) (fromIntegral nid) a (fromIntegral (nodeId g)) xs
     return $ Synth nid
 
-s_new_ :: MonadIdAllocator m => SynthDef -> AddAction -> [(String, Double)] -> Request m Synth
+s_new_ :: (MonadServer m, MonadIdAllocator m) => SynthDef -> AddAction -> [(String, Double)] -> Request m Synth
 s_new_ d a xs = rootNode >>= \g -> s_new d a g xs
 
 s_release :: (Node a, MonadIdAllocator m) => Double -> a -> Request m ()
@@ -304,7 +304,7 @@ newtype Group = Group NodeId deriving (Eq, Ord, Show)
 instance Node Group where
     nodeId (Group nid) = nid
 
-rootNode :: MonadIdAllocator m => m Group
+rootNode :: MonadServer m => m Group
 rootNode = liftM Group M.rootNodeId
 
 -- | Create a new group.
@@ -315,7 +315,7 @@ g_new a p = do
     return $ Group nid
 
 -- | Create a new group in the top level group.
-g_new_ :: MonadIdAllocator m => AddAction -> Request m Group
+g_new_ :: (MonadServer m, MonadIdAllocator m) => AddAction -> Request m Group
 g_new_ a = rootNode >>= g_new a
 
 -- | Free all synths in this group and all its sub-groups.

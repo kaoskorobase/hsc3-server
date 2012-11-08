@@ -27,7 +27,14 @@ Library
     Exposed-Modules:
         Sound.SC3.Server.Allocator
         Sound.SC3.Server.Allocator.Range
+        Sound.SC3.Server.Monad
+        Sound.SC3.Server.Monad.Class
+        Sound.SC3.Server.Monad.Command
+        Sound.SC3.Server.Monad.Process
+        Sound.SC3.Server.Notification
+    Other-Modules:
         Sound.SC3.Server.Allocator.BlockAllocator.FirstFit
+        Sound.SC3.Server.Allocator.BlockAllocator.FreeList
         Sound.SC3.Server.Allocator.SetAllocator
         Sound.SC3.Server.Allocator.SimpleAllocator
         Sound.SC3.Server.Allocator.Wrapped
@@ -35,14 +42,8 @@ Library
         Sound.SC3.Server.Connection.ListenerMap
         Sound.SC3.Server.Connection.ListenerMap.HashTable
         Sound.SC3.Server.Connection.ListenerMap.List
-        Sound.SC3.Server.Monad
-        Sound.SC3.Server.Monad.Command
-        Sound.SC3.Server.Monad.Process
-        Sound.SC3.Server.Notification
-        Sound.SC3.Server.State
-    Other-Modules:
-        Sound.SC3.Server.Allocator.BlockAllocator.FreeList        
         Sound.SC3.Server.Monad.Request
+        Sound.SC3.Server.State
     Build-Depends:
         base >= 4.3 && < 5
       , bitset >= 1.0 && < 1.2

@@ -1,9 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE UndecidableInstances #-}
+
 module Sound.SC3.Server.Monad
   ( -- * Server Monad
     ServerT
@@ -15,26 +13,22 @@ module Sound.SC3.Server.Monad
   , MonadServer(..)
   , serverOption
   -- * Allocation
-  , Allocator
   , BufferId
   , BufferIdAllocator
-  , bufferIdAllocator
-  , audioBusIdAllocator
-  , controlBusIdAllocator
   , ControlBusId
   , ControlBusIdAllocator
   , AudioBusId
   , AudioBusIdAllocator
   , NodeId
   , NodeIdAllocator
-  , nodeIdAllocator
   , MonadIdAllocator(..)
+  , allocMany
+  , freeMany
   -- * Communication and synchronization
   , MonadSendOSC(..)
   , MonadRecvOSC(..)
   , SyncId
   , SyncIdAllocator
-  , syncIdAllocator
   , sync
   , unsafeSync
   -- * Concurrency
@@ -42,25 +36,28 @@ module Sound.SC3.Server.Monad
   ) where
 
 import           Control.Applicative (Alternative, Applicative)
-import           Control.Concurrent.Lifted (ThreadId)
-import qualified Control.Concurrent.Lifted as CL
+import           Control.Concurrent (ThreadId)
+import qualified Control.Concurrent as Conc
 import           Control.Concurrent.MVar.Strict
 import           Control.DeepSeq (NFData)
+import           Control.Failure (Failure)
 import           Control.Monad (MonadPlus, ap, liftM, replicateM)
-import           Control.Monad.Base (MonadBase(..), liftBaseDefault)
+--import           Control.Monad.Base (MonadBase(..), liftBaseDefault)
 import           Control.Monad.Fix (MonadFix)
 import           Control.Monad.IO.Class (MonadIO, liftIO)
 import           Control.Monad.Trans.Reader (ReaderT(..))
 import qualified Control.Monad.Trans.Reader as R
-import           Control.Monad.Trans.Resource (MonadResource, MonadThrow)
+--import           Control.Monad.Trans.Resource (MonadResource, MonadThrow)
 import           Control.Monad.Trans.Class (MonadTrans(..))
-import           Control.Monad.Trans.Control
+--import           Control.Monad.Trans.Control
 import           Sound.OpenSoundControl (Datum(..), OSC(..), immediately)
-import           Sound.SC3.Server.Allocator (Id, IdAllocator, RangeAllocator, Range)
+import           Sound.SC3.Server.Allocator (AllocFailure)
 import qualified Sound.SC3.Server.Allocator as A
+--import           Sound.SC3.Server.Allocator.Range (Range)
 import           Sound.SC3.Server.Command (notify)
 import           Sound.SC3.Server.Connection (Connection)
 import qualified Sound.SC3.Server.Connection as C
+import           Sound.SC3.Server.Monad.Class
 import           Sound.SC3.Server.Notification (Notification, synced)
 import           Sound.SC3.Server.Process.Options (ServerOptions)
 import           Sound.SC3.Server.State ( AudioBusId, AudioBusIdAllocator
@@ -81,48 +78,31 @@ data State = State {
   , _controlBusIdAllocator :: MVar ControlBusIdAllocator
   }
 
-newtype ServerT m a = ServerT { unServerT :: ReaderT State m a }
-    deriving (Alternative, Applicative, Functor, Monad, MonadFix, MonadIO, MonadPlus, MonadResource, MonadThrow, MonadTrans)
+newtype ServerT m a = ServerT (ReaderT State m a)
+    deriving (Alternative, Applicative, Functor, Monad, MonadFix, MonadIO, MonadPlus, {- MonadResource, MonadThrow, -} MonadTrans)
 
 type Server = ServerT IO
 
-instance MonadBase b m => MonadBase b (ServerT m) where
-    {-# INLINE liftBase #-}
-    liftBase = liftBaseDefault
-
-instance MonadTransControl ServerT where
-    newtype StT ServerT a = StServerT {unStServerT::a}
-    {-# INLINE liftWith #-}
-    liftWith f = ServerT $ ReaderT $ \r -> f $ \t -> liftM StServerT $ runReaderT (unServerT t) r
-    {-# INLINE restoreT #-}
-    restoreT = ServerT . ReaderT . const . liftM unStServerT
-
-instance MonadBaseControl b m => MonadBaseControl b (ServerT m) where
-    newtype StM (ServerT m) a = StMT { unStMT :: ComposeSt ServerT m a }
-    {-# INLINE liftBaseWith #-}
-    liftBaseWith = defaultLiftBaseWith StMT
-    {-# INLINE restoreM #-}
-    restoreM = defaultRestoreM   unStMT
-
-newtype Allocator a = Allocator (State -> MVar a)
-
-syncIdAllocator :: Allocator SyncIdAllocator
-syncIdAllocator = Allocator _syncIdAllocator
-
-nodeIdAllocator :: Allocator NodeIdAllocator
-nodeIdAllocator = Allocator _nodeIdAllocator
-
-bufferIdAllocator :: Allocator BufferIdAllocator
-bufferIdAllocator = Allocator _bufferIdAllocator
-
-controlBusIdAllocator :: Allocator BusIdAllocator
-controlBusIdAllocator = Allocator _controlBusIdAllocator
-
-audioBusIdAllocator :: Allocator BusIdAllocator
-audioBusIdAllocator = Allocator _audioBusIdAllocator
+-- instance MonadBase b m => MonadBase b (ServerT m) where
+--     {-# INLINE liftBase #-}
+--     liftBase = liftBaseDefault
+-- 
+-- instance MonadTransControl ServerT where
+--     newtype StT ServerT a = StServerT {unStServerT::a}
+--     {-# INLINE liftWith #-}
+--     liftWith f = ServerT $ ReaderT $ \r -> f $ \t -> liftM StServerT $ runReaderT (unServerT t) r
+--     {-# INLINE restoreT #-}
+--     restoreT = ServerT . ReaderT . const . liftM unStServerT
+-- 
+-- instance MonadBaseControl b m => MonadBaseControl b (ServerT m) where
+--     newtype StM (ServerT m) a = StMT { unStMT :: ComposeSt ServerT m a }
+--     {-# INLINE liftBaseWith #-}
+--     liftBaseWith = defaultLiftBaseWith StMT
+--     {-# INLINE restoreM #-}
+--     restoreM = defaultRestoreM   unStMT
 
 -- | Run a 'ServerT' computation given a connection and return the result.
-runServerT :: MonadIO m => ServerT m a -> ServerOptions -> Connection -> m a
+runServerT :: (Failure AllocFailure m, MonadIO m) => ServerT m a -> ServerOptions -> Connection -> m a
 runServerT (ServerT r) so c =
     return (State so c)
       `ap` new State.syncIdAllocator
@@ -133,7 +113,7 @@ runServerT (ServerT r) so c =
       >>= runReaderT (init >> r)
     where 
         as = State.mkAllocators so
-        new :: (IdAllocator a, NFData a, MonadIO m) => (State.Allocators -> a) -> m (MVar a)
+        new :: (NFData a, MonadIO m) => (State.Allocators -> a) -> m (MVar a)
         new f = liftIO $ newMVar (f as)
         -- Register with server to receive notifications.
         (ServerT init) = sync (Bundle immediately [notify True])
@@ -148,62 +128,33 @@ capture = ServerT $ do
     s <- R.ask
     return $ \(ServerT m) -> R.runReaderT m s
 
-class Monad m => MonadServer m where
-    -- | Return the server options.
-    serverOptions :: m ServerOptions
-
--- | Return a server option.
-serverOption :: MonadServer m => (ServerOptions -> a) -> m a
-serverOption = flip liftM serverOptions
-
--- serverOptions :: MonadIO m => ServerT m ServerOptions
 instance Monad m => MonadServer (ServerT m) where
     serverOptions = ServerT $ R.asks _serverOptions
+    rootNodeId    = return (fromIntegral 0)
 
--- | Monadic resource id management interface.
-class Monad m => MonadIdAllocator m where
-    -- | Return the root node id.
-    rootNodeId :: m NodeId
-
-    -- | Allocate an id using the given allocator.
-    alloc :: (IdAllocator a, NFData a) => Allocator a -> m (Id a)
-
-    -- | Free an id using the given allocator.
-    free :: (IdAllocator a, NFData a) => Allocator a -> Id a -> m ()
-
-    -- | Allocate a number of ids using the given allocator.
-    allocMany :: (IdAllocator a, NFData a) => Allocator a -> Int -> m [Id a]
-
-    -- | Free a number of ids using the given allocator.
-    freeMany :: (IdAllocator a, NFData a) => Allocator a -> [Id a] -> m ()
-
-    -- | Allocate a contiguous range of ids using the given allocator.
-    allocRange :: (RangeAllocator a, NFData a) => Allocator a -> Int -> m (Range (Id a))
-
-    -- | Free a contiguous range of ids using the given allocator.
-    freeRange :: (RangeAllocator a, NFData a) => Allocator a -> Range (Id a) -> m ()
-
-withAllocator :: (IdAllocator a, NFData a, MonadIO m) => (a -> IO (b, a)) -> Allocator a -> ServerT m b
-withAllocator f (Allocator a) = ServerT $ do
+--withAllocator :: (NFData a, MonadIO m) => (State -> MVar a) -> (a -> IO (b, a)) -> ServerT m b
+withAllocator a f = ServerT $ do
     mv <- R.asks a
     liftIO $ modifyMVar mv $ \s -> do
         (i, s') <- f s
         return $! (s', i)
 
-withAllocator_ :: (IdAllocator a, NFData a, MonadIO m) => (a -> IO a) -> Allocator a -> ServerT m ()
-withAllocator_ f = withAllocator (liftM ((,)()) . f)
+--withAllocator_ :: (NFData a, MonadIO m) => (State -> MVar (AnyIdAllocator a)) -> (a -> IO a) -> ServerT m ()
+withAllocator_ a f = withAllocator a (liftM ((,)()) . f)
 
 instance MonadIO m => MonadIdAllocator (ServerT m) where
-    rootNodeId      = return (fromIntegral 0)
-    alloc a         = withAllocator A.alloc a
-    free a i        = withAllocator_ (A.free i) a
-    allocMany a n   = withAllocator (A.allocMany n) a
-    freeMany a is   = withAllocator_ (A.freeMany is) a
-    allocRange a n  = withAllocator (A.allocRange n) a
-    freeRange a r   = withAllocator_ (A.freeRange r) a
+  newtype Allocator (ServerT m) a = Allocator (State -> MVar a)
 
-class Monad m => MonadSendOSC m where
-    send :: OSC -> m ()
+  syncIdAllocator       = Allocator _syncIdAllocator
+  nodeIdAllocator       = Allocator _nodeIdAllocator
+  bufferIdAllocator     = Allocator _bufferIdAllocator
+  audioBusIdAllocator   = Allocator _audioBusIdAllocator
+  controlBusIdAllocator = Allocator _controlBusIdAllocator
+
+  alloc (Allocator a)      = withAllocator  a A.alloc
+  free (Allocator a)       = withAllocator_ a . A.free
+  allocRange (Allocator a) = withAllocator  a . A.allocRange
+  freeRange (Allocator a)  = withAllocator_ a . A.freeRange
 
 withConnection :: MonadIO m => (Connection -> IO a) -> ServerT m a
 withConnection f = ServerT $ R.asks _connection >>= \c -> liftIO (f c)
@@ -217,27 +168,15 @@ sendC c osc = do
 instance MonadIO m => MonadSendOSC (ServerT m) where
     send osc = withConnection $ \c -> sendC c osc
 
-class MonadSendOSC m => MonadRecvOSC m where
-    -- | Wait for a notification and return the result.
-    waitFor :: OSC -> Notification a -> m a
-    -- | Wait for a notification and ignore the result.
-    waitFor_ :: OSC -> Notification a -> m ()
-    waitFor_ osc n = waitFor osc n >> return ()
-    -- | Wait for a set of notifications and return their results in unspecified order.
-    waitForAll :: OSC -> [Notification a] -> m [a]
-    -- | Wait for a set of notifications and ignore their results.
-    waitForAll_ :: OSC -> [Notification a] -> m ()
-    waitForAll_ osc ns = waitForAll osc ns >> return ()
-
 -- | Send an OSC packet and wait for a notification.
 --
 -- Returns the transformed value.
 _waitFor :: Connection -> OSC -> Notification a -> IO a
 _waitFor c osc n = do
-    res <- CL.newEmptyMVar
-    uid <- C.addListener c (C.notificationListener (CL.putMVar res) n)
+    res <- Conc.newEmptyMVar
+    uid <- C.addListener c (C.notificationListener (Conc.putMVar res) n)
     sendC c osc
-    a <- CL.takeMVar res
+    a <- Conc.takeMVar res
     C.removeListener c uid
     return a
 
@@ -248,10 +187,10 @@ _waitForAll :: Connection -> OSC -> [Notification a] -> IO [a]
 _waitForAll c osc [] =
     sendC c osc >> return []
 _waitForAll c osc ns = do
-    res <- CL.newChan
-    uids <- mapM (C.addListener c . C.notificationListener (CL.writeChan res)) ns
+    res <- Conc.newChan
+    uids <- mapM (C.addListener c . C.notificationListener (Conc.writeChan res)) ns
     sendC c osc
-    as <- replicateM (length ns) (CL.readChan res)
+    as <- replicateM (length ns) (Conc.readChan res)
     mapM_ (C.removeListener c) uids
     return as
 
@@ -268,7 +207,7 @@ appendSync p i =
     where s = Message "/sync" [Int (fromIntegral i)]
 
 -- | Send an OSC packet and wait for the synchronization barrier.
-sync :: (MonadIO m) => OSC -> ServerT m ()
+sync :: (Failure A.AllocFailure m, MonadIO m) => OSC -> ServerT m ()
 sync osc = do
     i <- alloc syncIdAllocator
     waitFor_ (osc `appendSync` i) (synced i)
@@ -276,11 +215,9 @@ sync osc = do
 
 -- NOTE: This is only guaranteed to work with a transport that preserves
 -- packet order. NOTE 2: And not even then ;)
-unsafeSync :: (MonadIO m) => ServerT m ()
+unsafeSync :: (Failure A.AllocFailure m, MonadIO m) => ServerT m ()
 unsafeSync = sync (Bundle immediately [])
 
-
 -- | Fork a computation in a new thread and return the thread id.
-fork :: (MonadBaseControl IO m) => ServerT m () -> ServerT m ThreadId
-fork = CL.fork
-
+fork :: ServerT IO () -> ServerT IO ThreadId
+fork (ServerT a) = ServerT R.ask >>= liftIO . Conc.forkIO . R.runReaderT a
