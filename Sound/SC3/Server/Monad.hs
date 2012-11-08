@@ -2,36 +2,36 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
 
-module Sound.SC3.Server.Monad
-  ( -- * Server Monad
-    ServerT
-  , runServerT
-  , capture
-  , Server
-  , runServer
-  -- * Server options
-  , MonadServer(..)
-  , serverOption
-  -- * Allocation
-  , BufferId
-  , BufferIdAllocator
-  , ControlBusId
-  , ControlBusIdAllocator
-  , AudioBusId
-  , AudioBusIdAllocator
-  , NodeId
-  , NodeIdAllocator
-  , MonadIdAllocator(..)
-  -- * Communication and synchronization
-  , MonadSendOSC(..)
-  , MonadRecvOSC(..)
-  , SyncId
-  , SyncIdAllocator
-  , sync
-  , unsafeSync
-  -- * Concurrency
-  , fork
-  ) where
+module Sound.SC3.Server.Monad (
+-- * Server Monad
+  ServerT
+, runServerT
+, capture
+, Server
+, runServer
+-- * Server options
+, MonadServer(..)
+, serverOption
+-- * Allocation
+, BufferId
+, BufferIdAllocator
+, ControlBusId
+, ControlBusIdAllocator
+, AudioBusId
+, AudioBusIdAllocator
+, NodeId
+, NodeIdAllocator
+, MonadIdAllocator(..)
+-- * Communication and synchronization
+, MonadSendOSC(..)
+, MonadRecvOSC(..)
+, SyncId
+, SyncIdAllocator
+, sync
+, unsafeSync
+-- * Concurrency
+, fork
+) where
 
 import           Control.Applicative (Alternative, Applicative)
 import           Control.Concurrent (ThreadId)
@@ -101,19 +101,19 @@ type Server = ServerT IO
 -- | Run a 'ServerT' computation given a connection and return the result.
 runServerT :: (Failure AllocFailure m, MonadIO m) => ServerT m a -> ServerOptions -> Connection -> m a
 runServerT (ServerT r) so c =
-    return (State so c)
-      `ap` new State.syncIdAllocator
-      `ap` new State.nodeIdAllocator
-      `ap` new State.bufferIdAllocator
-      `ap` new State.audioBusIdAllocator
-      `ap` new State.controlBusIdAllocator
-      >>= runReaderT (init >> r)
-    where 
-        as = State.mkAllocators so
-        new :: MonadIO m => (State.Allocators -> a) -> m (MVar a)
-        new f = liftIO $ newMVar (f as)
-        -- Register with server to receive notifications.
-        (ServerT init) = sync (Bundle immediately [notify True])
+  return (State so c)
+    `ap` new State.syncIdAllocator
+    `ap` new State.nodeIdAllocator
+    `ap` new State.bufferIdAllocator
+    `ap` new State.audioBusIdAllocator
+    `ap` new State.controlBusIdAllocator
+    >>= runReaderT (init >> r)
+  where
+    as = State.mkAllocators so
+    new :: MonadIO m => (State.Allocators -> a) -> m (MVar a)
+    new f = liftIO $ newMVar (f as)
+    -- Register with server to receive notifications.
+    (ServerT init) = sync (Bundle immediately [notify True])
 
 -- | Run a 'Server' computation given a connection and return the result in the IO monad.
 runServer :: Server a -> ServerOptions -> Connection -> IO a
@@ -122,20 +122,20 @@ runServer = runServerT
 -- | Capture server state for later execution.
 capture :: Monad m => ServerT m (ServerT m a -> m a)
 capture = ServerT $ do
-    s <- R.ask
-    return $ \(ServerT m) -> R.runReaderT m s
+  s <- R.ask
+  return $ \(ServerT m) -> R.runReaderT m s
 
 instance Monad m => MonadServer (ServerT m) where
-    serverOptions = ServerT $ R.asks _serverOptions
-    rootNodeId    = return (fromIntegral 0)
+  serverOptions = ServerT $ R.asks _serverOptions
+  rootNodeId    = return (fromIntegral 0)
 
 withAllocator :: MonadIO m => (State -> MVar a) -> (a -> IO (b, a)) -> ServerT m b
 withAllocator a f = ServerT $ do
-    mv <- R.asks a
-    liftIO $ modifyMVar mv $ \s -> do
-        (i, s') <- f s
-        -- Evaluate allocator before putting back to MVar
-        return $! s' `seq` (s', i)
+  mv <- R.asks a
+  liftIO $ modifyMVar mv $ \s -> do
+    (i, s') <- f s
+    -- Evaluate allocator before putting back to MVar
+    return $! s' `seq` (s', i)
 
 withAllocator_ :: MonadIO m => (State -> MVar a) -> (a -> IO a) -> ServerT m ()
 withAllocator_ a f = withAllocator a (liftM ((,)()) . f)
@@ -164,52 +164,52 @@ sendC c osc = do
   C.send c osc
 
 instance MonadIO m => MonadSendOSC (ServerT m) where
-    send osc = withConnection $ \c -> sendC c osc
+  send osc = withConnection $ \c -> sendC c osc
 
 -- | Send an OSC packet and wait for a notification.
 --
 -- Returns the transformed value.
 _waitFor :: Connection -> OSC -> Notification a -> IO a
 _waitFor c osc n = do
-    res <- Conc.newEmptyMVar
-    uid <- C.addListener c (C.notificationListener (Conc.putMVar res) n)
-    sendC c osc
-    a <- Conc.takeMVar res
-    C.removeListener c uid
-    return a
+  res <- Conc.newEmptyMVar
+  uid <- C.addListener c (C.notificationListener (Conc.putMVar res) n)
+  sendC c osc
+  a <- Conc.takeMVar res
+  C.removeListener c uid
+  return a
 
 -- | Send an OSC packet and wait for a list of notifications.
 --
 -- Returns the transformed values, in unspecified order.
 _waitForAll :: Connection -> OSC -> [Notification a] -> IO [a]
 _waitForAll c osc [] =
-    sendC c osc >> return []
+  sendC c osc >> return []
 _waitForAll c osc ns = do
-    res <- Conc.newChan
-    uids <- mapM (C.addListener c . C.notificationListener (Conc.writeChan res)) ns
-    sendC c osc
-    as <- replicateM (length ns) (Conc.readChan res)
-    mapM_ (C.removeListener c) uids
-    return as
+  res <- Conc.newChan
+  uids <- mapM (C.addListener c . C.notificationListener (Conc.writeChan res)) ns
+  sendC c osc
+  as <- replicateM (length ns) (Conc.readChan res)
+  mapM_ (C.removeListener c) uids
+  return as
 
 instance MonadIO m => MonadRecvOSC (ServerT m) where
-    waitFor osc n     = withConnection $ \c -> _waitFor c osc n
-    waitForAll osc ns = withConnection $ \c -> _waitForAll c osc ns
+  waitFor osc n     = withConnection $ \c -> _waitFor c osc n
+  waitForAll osc ns = withConnection $ \c -> _waitForAll c osc ns
 
 -- | Append a @\/sync@ message to an OSC packet.
 appendSync :: OSC -> SyncId -> OSC
 appendSync p i =
-    case p of
-        m@(Message _ _) -> Bundle immediately [m, s]
-        (Bundle t xs)   -> Bundle t (xs ++ [s])
-    where s = Message "/sync" [Int (fromIntegral i)]
+  case p of
+    m@(Message _ _) -> Bundle immediately [m, s]
+    (Bundle t xs)   -> Bundle t (xs ++ [s])
+  where s = Message "/sync" [Int (fromIntegral i)]
 
 -- | Send an OSC packet and wait for the synchronization barrier.
 sync :: (Failure A.AllocFailure m, MonadIO m) => OSC -> ServerT m ()
 sync osc = do
-    i <- alloc syncIdAllocator
-    waitFor_ (osc `appendSync` i) (synced i)
-    free syncIdAllocator i
+  i <- alloc syncIdAllocator
+  waitFor_ (osc `appendSync` i) (synced i)
+  free syncIdAllocator i
 
 -- NOTE: This is only guaranteed to work with a transport that preserves
 -- packet order. NOTE 2: And not even then ;)
