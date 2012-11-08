@@ -55,35 +55,40 @@ percentUsed s = fromIntegral (numUsed s) / fromIntegral (numAvailable s)
 -- identifiers that correspond to server resources, such as node, buffer and
 -- bus ids.
 class IdAllocator a where
-    type Id a
-    -- | Allocate a new identifier and return the changed allocator.
-    alloc :: Failure AllocFailure m => a -> m (Id a, a)
+  -- | Id type allocated by this allocator.
+  type Id a
 
-    -- | Free a previously allocated identifier and return the changed allocator.
-    --
-    -- Freeing an identifier that hasn't been allocated with this allocator may trigger a failure.
-    free  :: Failure AllocFailure m => Id a -> a -> m a
+  -- | Allocate a new identifier and return the changed allocator.
+  alloc :: Failure AllocFailure m => a -> m (Id a, a)
 
-    -- | Allocate a number of - not necessarily consecutive - identifiers and return the changed allocator.
-    allocMany :: Failure AllocFailure m => Int -> a -> m ([Id a], a)
-    allocMany n = State.runStateT (replicateM n (modifyM alloc))
-        where
-            modifyM f = do
-                (a, s') <- State.get >>= State.lift . f
-                State.put $! s'
-                return a
+  -- | Free a previously allocated identifier and return the changed allocator.
+  --
+  -- Freeing an identifier that hasn't been allocated with this allocator may
+  -- trigger a failure.
+  free  :: Failure AllocFailure m => Id a -> a -> m a
 
-    -- | Free a list of previously allocated identifiers.
-    freeMany :: Failure AllocFailure m => [Id a] -> a -> m a
-    freeMany = flip (foldM (flip free))
+  -- | Allocate a number of - not necessarily consecutive - identifiers and
+  --   return the changed allocator.
+  allocMany :: Failure AllocFailure m => Int -> a -> m ([Id a], a)
+  allocMany n = State.runStateT (replicateM n (modifyM alloc))
+    where
+      modifyM f = do
+        (a, s') <- State.get >>= State.lift . f
+        State.put $! s'
+        return a
 
-    -- | Return usage statistics.
-    statistics :: a -> Statistics
+  -- | Free a list of previously allocated identifiers.
+  freeMany :: Failure AllocFailure m => [Id a] -> a -> m a
+  freeMany = flip (foldM (flip free))
+
+  -- | Return usage statistics.
+  statistics :: a -> Statistics
 
 -- | RangeAllocator provides an interface for allocating and releasing ranges
--- of consecutive identifiers.
+--   of consecutive identifiers.
 class IdAllocator a => RangeAllocator a where
-    -- | Allocate n consecutive identifiers and return the changed allocator.
-    allocRange :: Failure AllocFailure m => Int -> a -> m (Range (Id a), a)
-    -- | Free a range of previously allocated identifiers and return the changed allocator.
-    freeRange  :: Failure AllocFailure m => Range (Id a) -> a -> m a
+  -- | Allocate n consecutive identifiers and return the changed allocator.
+  allocRange :: Failure AllocFailure m => Int -> a -> m (Range (Id a), a)
+  -- | Free a range of previously allocated identifiers and return the changed
+  --   allocator.
+  freeRange  :: Failure AllocFailure m => Range (Id a) -> a -> m a
