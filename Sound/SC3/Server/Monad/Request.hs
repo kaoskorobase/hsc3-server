@@ -29,27 +29,26 @@ import           Sound.SC3.Server.Notification (Notification)
 import qualified Sound.SC3.Server.Notification as N
 import           Sound.OpenSoundControl (OSC(..), Time, immediately)
 
-data Build =
-    BuildSync OSC
-  | BuildAsync (Maybe OSC -> OSC)
+data Builder =
+    BuildDone
+  | BuildSync OSC Builder
+  | BuildAsync (Maybe OSC -> OSC) Builder
 
-compile :: Time -> [Build] -> OSC
+compile :: Time -> Builder -> OSC
 compile t rs = go t rs []
   where
-    go t [] ps = Bundle t ps
-    go t (r:rs) ps =
-      case r of
-        BuildSync osc ->
-          go t rs (osc : ps)
-        BuildAsync f  -> case ps of
-          [] -> let ps' = [f Nothing]
-                in go t rs ps'
-          _  -> let ps' = [f (Just (Bundle t ps))]
-                in go immediately rs ps'
+    go t BuildDone ps = Bundle t ps
+    go t (BuildSync osc rs') ps = go t rs' (osc : ps)
+    go t (BuildAsync f rs') ps =
+      case ps of
+        [] -> let ps' = [f Nothing]
+              in go t rs' ps'
+        _  -> let ps' = [f (Just (Bundle t ps))]
+              in go immediately rs' ps'
 
 -- | Internal state used for constructing bundles from 'Request' actions.
 data State m = State {
-    requests      :: [Build]                -- ^ Current list of OSC messages.
+    requests      :: Builder                -- ^ Current list of OSC messages.
   , notifications :: [Notification (m ())]  -- ^ Current list of notifications to synchronise on.
   , cleanup       :: m ()                   -- ^ Cleanup action to deallocate resources.
   , needsSync     :: Bool                   -- ^ Whether last bundle needs a synchronisation barrier.
@@ -57,7 +56,7 @@ data State m = State {
 
 -- | The empty state.
 emptyState :: Monad m => State m
-emptyState = State [] [] (return ()) False
+emptyState = State BuildDone [] (return ()) False
 
 -- | Server-side action (or sequence of actions).
 newtype Request m a = Request (State.StateT (State m) m a)
@@ -100,7 +99,7 @@ instance MonadIdAllocator m => MonadIdAllocator (Request m) where
 -- | Bundles are flattened into the resulting bundle because @scsynth@ doesn't
 -- support nested bundles.
 instance Monad m => MonadSendOSC (Request m) where
-  send osc@(Message _ _) = modify $ \s -> s { requests = BuildSync osc : requests s }
+  send osc@(Message _ _) = modify $ \s -> s { requests = BuildSync osc (requests s) }
   send (Bundle _ xs)     = mapM_ M.send xs
 
 -- | Allocation action newtype wrapper.
@@ -161,7 +160,7 @@ finally (AllocT m) = modify $ \s -> s { cleanup = cleanup s >> m }
 mkAsync :: Monad m => AllocT m (a, (Maybe OSC -> OSC)) -> Request m a
 mkAsync (AllocT m) = do
   (a, f) <- lift m
-  modify $ \s -> s { requests = BuildAsync f : requests s
+  modify $ \s -> s { requests = BuildAsync f (requests s)
                    , needsSync = True }
   return a
 
@@ -194,7 +193,7 @@ runRequest t r = do
   let Request m = finish r
   (a, s) <- State.runStateT m emptyState
   let osc = case requests s of
-              [] -> Nothing
+              BuildDone -> Nothing
               rs -> Just (compile t rs, notifications s)
   return (a, osc, cleanup s)
 
@@ -206,7 +205,7 @@ exec t r = do
   let Request m = finish r
   (a, s) <- State.runStateT m emptyState
   case requests s of
-    [] -> return ()
+    BuildDone -> return ()
     rs -> let osc = compile t rs
               ns = notifications s
           in M.waitForAll osc ns >>= sequence_
