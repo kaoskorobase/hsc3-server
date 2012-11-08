@@ -127,7 +127,7 @@ instance MonadIdAllocator Server where
   audioBusIdAllocator   = Allocator _audioBusIdAllocator
   controlBusIdAllocator = Allocator _controlBusIdAllocator
 
-  alloc (Allocator a)      = withAllocator  a A.alloc
+  alloc (Allocator a)      = withAllocator  a   A.alloc
   free (Allocator a)       = withAllocator_ a . A.free
   allocRange (Allocator a) = withAllocator  a . A.allocRange
   freeRange (Allocator a)  = withAllocator_ a . A.freeRange
