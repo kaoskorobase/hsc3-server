@@ -76,7 +76,6 @@ Executable hsc3-hello
         base >= 4.3 && < 5
       , bitset >= 1.0 && < 1.2
       , containers >= 0.2 && < 0.6
-      , deepseq >= 1.1 && < 1.4
       , failure >= 0.2 && < 0.3
       , hosc >= 0.8 && < 0.12
       , hsc3 >= 0.11 && < 0.12
@@ -84,7 +83,6 @@ Executable hsc3-hello
       , lifted-base >= 0.1 && < 0.3
       , monad-control >= 0.3 && < 0.4
       , resourcet >= 0.3 && < 0.5
-      , strict-concurrency >= 0.2 && < 0.3
       , transformers >= 0.2 && < 0.4
       , transformers-base >= 0.4 && < 0.5
     Ghc-Options:
@@ -100,7 +98,6 @@ Executable hsc3-sine-grains
         base >= 4.3 && < 5
       , bitset >= 1.0 && < 1.2
       , containers >= 0.2 && < 0.6
-      , deepseq >= 1.1 && < 1.4
       , failure >= 0.2 && < 0.3
       , hosc >= 0.8 && < 0.12
       , hsc3 >= 0.11 && < 0.12
@@ -109,7 +106,6 @@ Executable hsc3-sine-grains
       , monad-control >= 0.3 && < 0.4
       , random >= 1.0 && < 1.1
       , resourcet >= 0.3 && < 0.5
-      , strict-concurrency >= 0.2 && < 0.3
       , transformers >= 0.2 && < 0.4
       , transformers-base >= 0.4 && < 0.5
       , unix >= 2.5 && < 2.6
@@ -125,7 +121,6 @@ Test-Suite hsc3-server-test
     Build-Depends:
         base >= 4.3 && < 5
       , bitset >= 1.0
-      , deepseq >= 1.1
       , failure >= 0.1
       , QuickCheck >= 2.4
       , random >= 1.0
