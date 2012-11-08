@@ -16,14 +16,18 @@ module Sound.SC3.Server.Monad.Command
   , statusM
   , PrintLevel(..)
   , dumpOSC
+  , clearSched
+  , ErrorScope(..)
+  , ErrorMode(..)
+  , errorMode
   -- * Synth definitions
   , SynthDef(name)
   -- , d_recv
-  -- , d_load
-  -- , d_loadDir
   , d_named
   , d_default
   , d_recv
+  , d_load
+  , d_loadDir
   , d_free
   -- * Resources
   -- ** Nodes
@@ -49,6 +53,9 @@ module Sound.SC3.Server.Monad.Command
   , s_new
   , s_new_
   , s_release
+  , s_get
+  , s_getn
+  , s_noid
   -- *** Groups
   , Group(..)
   , rootNode
@@ -59,18 +66,38 @@ module Sound.SC3.Server.Monad.Command
   , g_head
   , g_tail
   , g_dumpTree
+  --, g_queryTree
+  -- ** Plugin Commands
+  , cmd
+  -- ** Unit Generator Commands
+  , u_cmd
   -- ** Buffers
   , Buffer
   , bufferId
   , b_alloc
+  , b_allocRead
+  , b_allocReadChannel
   , b_read
+  , b_readChannel
   , HeaderFormat(..)
   , SampleFormat(..)
   , b_write
   , b_free
   , b_zero
+  , b_set
+  , b_setn
+  , b_fill
+  , b_gen
+  , b_sine1
+  , b_sine2
+  , b_sine3
+  , b_cheby
+  , b_copy
+  , b_close
   , b_query
   , b_queryM
+  --, b_get
+  --, b_getn
   -- ** Buses
   , Bus(..)
   , AudioBus(audioBusIdRange)
@@ -81,6 +108,12 @@ module Sound.SC3.Server.Monad.Command
   , ControlBus(controlBusIdRange)
   , controlBusId
   , newControlBus
+  -- *** Control Bus Commands
+  --, c_set
+  --, c_setn
+  --, c_fill
+  --, c_get
+  --, c_getn
   ) where
 
 --import qualified Codec.Compression.BZip as BZip
@@ -89,17 +122,17 @@ import           Control.Arrow (first)
 import           Control.Failure (Failure, failure)
 import           Control.Monad (liftM, unless)
 import           Control.Monad.IO.Class (MonadIO)
-import           Sound.OpenSoundControl (OSC(..))
+import           Sound.OpenSoundControl (Datum(..), OSC(..))
 import           Sound.SC3 (Rate(..), UGen)
 import           Sound.SC3.Server.Allocator.Range (Range)
 import qualified Sound.SC3.Server.Allocator.Range as Range
 import qualified Sound.SC3.Server.Monad as M
 import           Sound.SC3.Server.Monad.Class (MonadIdAllocator, MonadRecvOSC, MonadServer, send, serverOption)
-import           Sound.SC3.Server.Monad.Request (Request, Result, after, after_, finally, mkAsync, mkAsync_, mkSync)
+import           Sound.SC3.Server.Monad.Request (Request, Result, after_, finally, mkAsync, mkAsync_, mkSync, waitFor)
 import qualified Sound.SC3.Server.Monad.Request as R
 import qualified Sound.SC3.Server.Synthdef as Synthdef
 import           Sound.SC3.Server.Allocator (AllocFailure(..))
-import           Sound.SC3.Server.Command (AddAction(..), PrintLevel(..))
+import           Sound.SC3.Server.Command (AddAction(..), ErrorScope(..), ErrorMode(..), PrintLevel(..))
 import qualified Sound.SC3.Server.Command as C
 import qualified Sound.SC3.Server.Command.Completion as C
 import qualified Sound.SC3.Server.Notification as N
@@ -117,19 +150,36 @@ mkC _ f (Just osc) = f osc
 get :: (MonadIdAllocator m, MonadRecvOSC m, MonadIO m) => Request m (Result a) -> m a
 get m = R.exec_ m >>= R.extract
 
+bool :: Bool -> Datum
+bool True  = Int 1
+bool False = Int 0
+
 -- ====================================================================
 -- Master controls
 
+-- | Request server status.
 status :: MonadIO m => Request m (Result N.Status)
-status = send C.status >> after N.status_reply (return ())
+status = do
+  send C.status
+  waitFor N.status_reply
 
+-- | Request server status.
 statusM :: (MonadIdAllocator m, MonadRecvOSC m, MonadIO m) => m N.Status
 statusM = get status
 
+-- | Select printing of incoming Open Sound Control messages.
 dumpOSC :: MonadIdAllocator m => PrintLevel -> Request m ()
 dumpOSC p = do
-    send (C.dumpOSC p)
-    send =<< mkSync
+  send (C.dumpOSC p)
+  send =<< mkSync
+
+-- | Remove all bundles from the scheduling queue.
+clearSched :: Monad m => Request m ()
+clearSched = send C.clearSched
+
+-- | Set error posting scope and mode.
+errorMode :: Monad m => ErrorScope -> ErrorMode -> Request m ()
+errorMode scope = send . C.errorMode scope
 
 -- ====================================================================
 -- Synth definitions
@@ -138,9 +188,11 @@ newtype SynthDef = SynthDef {
     name  :: String
   } deriving (Eq, Show)
 
+-- | Construct a synth definition from a name.
 d_named :: String -> SynthDef
 d_named = SynthDef
 
+-- | The default synth definition.
 d_default :: SynthDef
 d_default = d_named "default"
 
@@ -156,12 +208,22 @@ d_default = d_named "default"
 --     where
 --         sd = SynthDef (prefix ++ "-" ++ graphName ugen)
 --         f osc = (mkC C.d_recv C.d_recv' osc) (Synthdef.synthdef (name sd) ugen)
+
+-- | Create a synth definition from a name and a UGen graph.
 d_recv :: Monad m => String -> UGen -> Request m SynthDef
 d_recv name ugen
     | length name < 255 = mkAsync $ return (SynthDef name, f)
     | otherwise = error "d_recv: name too long, resulting string exceeds 255 characters"
     where
         f osc = (mkC C.d_recv C.d_recv' osc) (Synthdef.synthdef name ugen)
+
+-- | Load a synth definition from a named file. (Asynchronous)
+d_load :: Monad m => FilePath -> Request m ()
+d_load fp = mkAsync_ $ \osc -> mkC C.d_load C.d_load' osc $ fp
+
+-- | Load a directory of synth definition files. (Asynchronous)
+d_loadDir :: Monad m => FilePath -> Request m ()
+d_loadDir fp = mkAsync_ $ \osc -> mkC C.d_loadDir C.d_loadDir' osc $ fp
 
 -- | Remove definition once all nodes using it have ended.
 d_free :: Monad m => SynthDef -> Request m ()
@@ -244,11 +306,13 @@ instance BusMapping n AudioBus where
 
 -- | Query a node.
 n_query_ :: (Node a, Monad m) => a -> Request m ()
-n_query_ n = send $ C.n_query [fromIntegral (nodeId n)]
+n_query_ n = send (C.n_query [fromIntegral (nodeId n)])
 
 -- | Query a node.
 n_query :: (Node a, MonadIO m) => a -> Request m (Result N.NodeNotification)
-n_query n = n_query_ n >> after (N.n_info (nodeId n)) (return ())
+n_query n = do
+  n_query_ n
+  waitFor (N.n_info (nodeId n))
 
 n_queryM :: (Node a, MonadIdAllocator m, MonadRecvOSC m, MonadIO m) => a -> m N.NodeNotification
 n_queryM = get . n_query
@@ -290,11 +354,29 @@ s_new d a g xs = do
 s_new_ :: (MonadServer m, MonadIdAllocator m) => SynthDef -> AddAction -> [(String, Double)] -> Request m Synth
 s_new_ d a xs = rootNode >>= \g -> s_new d a g xs
 
-s_release :: (Node a, MonadIdAllocator m) => Double -> a -> Request m ()
-s_release r n = do
-    send (C.n_set1 (fromIntegral nid) "gate" r)
-    after_ (N.n_end_ nid) (M.free M.nodeIdAllocator nid)
-    where nid = nodeId n
+s_release :: MonadIdAllocator m => Double -> Synth -> Request m ()
+s_release r s = do
+  send (C.n_set1 (fromIntegral nid) "gate" r)
+  after_ (N.n_end_ nid) (M.free M.nodeIdAllocator nid)
+  where nid = nodeId s
+
+s_get :: MonadIO m => Synth -> [String] -> Request m (Result [(Either Int String, Double)])
+s_get s cs = do
+  send (C.s_get (fromIntegral nid) cs)
+  waitFor (N.n_set nid)
+  where nid = nodeId s
+
+s_getn :: MonadIO m => Synth -> [(String, Int)] -> Request m (Result [(Either Int String, [Double])])
+s_getn s cs = do
+  send (C.s_getn (fromIntegral nid) cs)
+  waitFor (N.n_setn nid)
+  where nid = nodeId s
+
+s_noid :: MonadIdAllocator m => Synth -> Request m ()
+s_noid s = do
+  send (C.s_noid [fromIntegral nid])
+  M.free M.nodeIdAllocator nid
+  where nid = nodeId s
 
 -- ====================================================================
 -- Group
@@ -304,6 +386,7 @@ newtype Group = Group NodeId deriving (Eq, Ord, Show)
 instance Node Group where
     nodeId (Group nid) = nid
 
+-- | Return the server's root group.
 rootNode :: MonadServer m => m Group
 rootNode = liftM Group M.rootNodeId
 
@@ -339,17 +422,54 @@ g_dumpTree :: Monad m => [(Group, Bool)] -> Request m ()
 g_dumpTree = send . C.g_dumpTree . map (first (fromIntegral . nodeId))
 
 -- ====================================================================
--- Buffer
+-- Plugin Commands
+
+-- | Send a plugin command.
+cmd :: Monad m => String -> [Datum] -> Request m ()
+cmd s = send . C.cmd s
+
+-- ====================================================================
+-- Unit Generator Commands
+
+-- | Send a command to a unit generator.
+u_cmd :: Monad m => AbstractNode -> Int -> String -> [Datum] -> Request m ()
+u_cmd n i s = send . C.u_cmd (fromIntegral (nodeId n)) i s
+
+-- ====================================================================
+-- Buffer Commands
 
 newtype Buffer = Buffer { bufferId :: BufferId } deriving (Eq, Ord, Show)
 
+-- | Allocates zero filled buffer to number of channels and samples. (Asynchronous)
 b_alloc :: MonadIdAllocator m => Int -> Int -> Request m Buffer
 b_alloc n c = mkAsync $ do
     bid <- M.alloc M.bufferIdAllocator
     let f osc = (mkC C.b_alloc C.b_alloc' osc) (fromIntegral bid) n c
     return (Buffer bid, f)
 
-b_read :: MonadIO m =>
+-- | Allocate buffer space and read a sound file. (Asynchronous)
+b_allocRead :: MonadIdAllocator m => FilePath -> Maybe Int -> Maybe Int -> Request m Buffer
+b_allocRead path fileOffset numFrames = mkAsync $ do
+  bid <- M.alloc M.bufferIdAllocator
+  let f osc = (mkC C.b_allocRead C.b_allocRead' osc)
+                (fromIntegral bid) path
+                (maybe 0 id fileOffset)
+                (maybe (-1) id numFrames)
+  return (Buffer bid, f)
+
+-- | Allocate buffer space and read a sound file, picking specific channels. (Asynchronous)
+b_allocReadChannel :: MonadIdAllocator m => FilePath -> Maybe Int -> Maybe Int -> [Int] -> Request m Buffer
+b_allocReadChannel path fileOffset numFrames channels = mkAsync $ do
+  bid <- M.alloc M.bufferIdAllocator
+  let f osc = (mkC C.b_allocReadChannel C.b_allocReadChannel' osc)
+                (fromIntegral bid) path
+                (maybe 0 id fileOffset)
+                (maybe (-1) id numFrames)
+                channels
+  return (Buffer bid, f)
+
+-- | Read sound file data into an existing buffer. (Asynchronous)
+b_read :: Monad m =>
     Buffer
  -> FilePath
  -> Maybe Int
@@ -357,16 +477,32 @@ b_read :: MonadIO m =>
  -> Maybe Int
  -> Bool
  -> Request m ()
-b_read (Buffer bid) path
-       fileOffset numFrames bufferOffset
-       leaveOpen = mkAsync_ f
-    where
-        f osc = (mkC C.b_read C.b_read' osc)
-                    (fromIntegral bid) path
-                    (maybe 0 id fileOffset)
-                    (maybe (-1) id numFrames)
-                    (maybe 0 id bufferOffset)
-                    leaveOpen
+b_read (Buffer bid) path fileOffset numFrames bufferOffset leaveOpen =
+  mkAsync_ $ \osc -> (mkC C.b_read C.b_read' osc)
+                      (fromIntegral bid) path
+                      (maybe 0 id fileOffset)
+                      (maybe (-1) id numFrames)
+                      (maybe 0 id bufferOffset)
+                      leaveOpen
+
+-- | Read sound file data into an existing buffer, picking specific channels. (Asynchronous)
+b_readChannel :: MonadIO m =>
+    Buffer
+ -> FilePath
+ -> Maybe Int
+ -> Maybe Int
+ -> Maybe Int
+ -> Bool
+ -> [Int]
+ -> Request m ()
+b_readChannel (Buffer bid) path fileOffset numFrames bufferOffset leaveOpen channels =
+  mkAsync_ $ \osc -> (mkC C.b_readChannel C.b_readChannel' osc)
+                      (fromIntegral bid) path
+                      (maybe 0 id fileOffset)
+                      (maybe (-1) id numFrames)
+                      (maybe 0 id bufferOffset)
+                      leaveOpen
+                      channels
 
 data HeaderFormat =
     Aiff
@@ -434,15 +570,97 @@ b_free b = mkAsync $ do
     return ((), f)
 
 b_zero :: MonadIO m => Buffer -> Request m ()
-b_zero (Buffer bid) = mkAsync_ f
-    where
-        f osc = (mkC C.b_zero C.b_zero' osc) (fromIntegral bid)
+b_zero buffer = mkAsync_ $ \osc ->
+  (mkC C.b_zero C.b_zero' osc)
+    (fromIntegral (bufferId buffer))
 
+-- | Set sample values.
+b_set :: Monad m => Buffer -> [(Int, Double)] -> Request m ()
+b_set buffer = send . C.b_set (fromIntegral (bufferId buffer))
+
+-- | Set ranges of sample values.
+b_setn :: Monad m => Buffer -> [(Int, [Double])] -> Request m ()
+b_setn buffer = send . C.b_setn (fromIntegral (bufferId buffer))
+
+-- | Fill ranges of sample values.
+b_fill :: Monad m => Buffer -> [(Int, Int, Double)] -> Request m ()
+b_fill buffer = send . C.b_fill (fromIntegral (bufferId buffer))
+
+-- | Call a command to fill a buffer. (Asynchronous)
+b_gen :: MonadIdAllocator m => Buffer -> String -> [Datum] -> Request m ()
+b_gen buffer cmd args = do
+  send $ Message "/b_gen"
+                 ( Int (fromIntegral (bufferId buffer))
+                 : String cmd
+                 : args )
+  send =<< mkSync
+
+-- | Fill a buffer with partials, specifying amplitudes.
+b_sine1 :: MonadIdAllocator m => Buffer -> Bool -> Bool -> Bool -> [Double] -> Request m ()
+b_sine1 buffer normalize wavetable clear values =
+  b_gen buffer "sine1"
+    $ bool normalize
+    : bool wavetable
+    : bool clear
+    : map Float values
+
+-- | Fill a buffer with partials, specifying frequencies (in cycles per buffer) and amplitudes.
+b_sine2 :: MonadIdAllocator m => Buffer -> Bool -> Bool -> Bool -> [(Double, Double)] -> Request m ()
+b_sine2 buffer normalize wavetable clear values =
+  b_gen buffer "sine2"
+    $ bool normalize
+    : bool wavetable
+    : bool clear
+    : concatMap (\(a, b) -> [Float a, Float b]) values
+
+-- | Fill a buffer with partials, specifying frequencies (in cycles per buffer), amplitudes and phases.
+b_sine3 :: MonadIdAllocator m => Buffer -> Bool -> Bool -> Bool -> [(Double, Double, Double)] -> Request m ()
+b_sine3 buffer normalize wavetable clear values =
+  b_gen buffer "sine3"
+    $ bool normalize
+    : bool wavetable
+    : bool clear
+    : concatMap (\(a, b, c) -> [Float a, Float b, Float c]) values
+
+-- | Fills a buffer with a series of chebyshev polynomials.
+
+-- Chebychev polynomials can be defined as:
+--
+-- cheby(n) = amplitude * cos(n * acos(x))
+--
+-- The first float value specifies the amplitude for n = 1, the second float
+-- value specifies the amplitude for n = 2, and so on. To eliminate a DC offset
+-- when used as a waveshaper, the wavetable is offset so that the center value
+-- is zero.
+b_cheby :: MonadIdAllocator m => Buffer -> Bool -> Bool -> Bool -> [Double] -> Request m ()
+b_cheby buffer normalize wavetable clear values =
+  b_gen buffer "cheby"
+    $ bool normalize
+    : bool wavetable
+    : bool clear
+    : map Float values
+
+-- | Copy samples from the source buffer to the destination buffer.
+b_copy :: MonadIdAllocator m => Buffer -> Int -> Buffer -> Int -> Maybe Int -> Request m ()
+b_copy buffer sampleOffset srcBuffer srcSampleOffset numSamples =
+  b_gen buffer "copy"
+    $ Int sampleOffset
+    : Int (fromIntegral (bufferId srcBuffer))
+    : Int srcSampleOffset
+    : Int (maybe (-1) id numSamples)
+    : []
+
+-- | Close attached soundfile and write header information. (Asynchronous)
+b_close :: Monad m => Buffer -> Request m ()
+b_close buffer = mkAsync_ $ \osc -> mkC C.b_close C.b_close' osc $ fromIntegral (bufferId buffer)
+
+-- | Request 'BufferInfo'.
 b_query :: MonadIO m => Buffer -> Request m (Result N.BufferInfo)
 b_query (Buffer bid) = do
     send (C.b_query [fromIntegral bid])
-    after (N.b_info bid) (return ())
+    waitFor (N.b_info bid)
 
+-- | Request 'BufferInfo'.
 b_queryM :: (MonadIdAllocator m, MonadRecvOSC m, MonadIO m) => Buffer -> m N.BufferInfo
 b_queryM = get . b_query
 
