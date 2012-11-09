@@ -64,7 +64,7 @@ grainLoop quit synthDef delta sustain t = do
   -- Check whether to exit the loop and recurse
   b <- liftIO $ isEmptyMVar quit
   when b $ grainLoop quit synthDef delta sustain t'
- 
+
 newBreakHandler :: IO (MVar ())
 newBreakHandler = do
   quit <- newEmptyMVar
@@ -72,7 +72,7 @@ newBreakHandler = do
           (Catch $ putStrLn "Quitting..." >> putMVar quit ())
           Nothing
   return quit
- 
+
 main :: IO ()
 main = do
   -- Install keyboard break handler
