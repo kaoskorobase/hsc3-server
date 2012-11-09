@@ -126,7 +126,7 @@ instance MonadIdAllocator m => MonadIdAllocator (AllocT m) where
 -- Resource resource values can only be observed with 'extract' after the
 -- surrounding 'Request' action has been executed with 'exec'.
 newtype Result a = Result (IO a)
-                  deriving (Applicative, Functor, Monad)
+                   deriving (Applicative, Functor, Monad)
 
 -- | Extract a 'Result'\'s value.
 extract :: MonadIO m => Result a -> m a
