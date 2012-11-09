@@ -3,118 +3,117 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-module Sound.SC3.Server.Monad.Command
-  (
-  -- * Requests
-    Request
-  , R.exec
-  , R.exec_
-  , Result
-  , R.extract
-  -- * Master controls
-  , status
-  , statusM
-  , PrintLevel(..)
-  , dumpOSC
-  , clearSched
-  , ErrorScope(..)
-  , ErrorMode(..)
-  , errorMode
-  -- * Synth definitions
-  , SynthDef(name)
-  -- , d_recv
-  , d_named
-  , d_default
-  , d_recv
-  , d_load
-  , d_loadDir
-  , d_free
-  -- * Resources
-  -- ** Nodes
-  , Node(..)
-  , AddAction(..)
-  , AbstractNode
-  , node
-  , n_after
-  , n_before
-  , n_fill
-  , n_free
-  , BusMapping(..)
-  , n_query_
-  , n_query
-  , n_queryM
-  , n_run_
-  , n_set
-  , n_setn
-  , n_trace
-  , n_order
-  -- *** Synths
-  , Synth(..)
-  , s_new
-  , s_new_
-  , s_release
-  , s_get
-  , s_getn
-  , s_noid
-  -- *** Groups
-  , Group(..)
-  , rootNode
-  , g_new
-  , g_new_
-  , g_deepFree
-  , g_freeAll
-  , g_head
-  , g_tail
-  , g_dumpTree
-  --, g_queryTree
-  -- ** Plugin Commands
-  , cmd
-  -- ** Unit Generator Commands
-  , u_cmd
-  -- ** Buffers
-  , Buffer
-  , bufferId
-  , b_alloc
-  , b_allocRead
-  , b_allocReadChannel
-  , b_read
-  , b_readChannel
-  , HeaderFormat(..)
-  , SampleFormat(..)
-  , b_write
-  , b_free
-  , b_zero
-  , b_set
-  , b_setn
-  , b_fill
-  , b_gen
-  , b_sine1
-  , b_sine2
-  , b_sine3
-  , b_cheby
-  , b_copy
-  , b_close
-  , b_query
-  , b_queryM
-  --, b_get
-  --, b_getn
-  -- ** Buses
-  , Bus(..)
-  , AudioBus(audioBusIdRange)
-  , audioBusId
-  , inputBus
-  , outputBus
-  , newAudioBus
-  , ControlBus(controlBusIdRange)
-  , controlBusId
-  , newControlBus
-  -- *** Control Bus Commands
-  --, c_set
-  --, c_setn
-  --, c_fill
-  --, c_get
-  --, c_getn
-  ) where
+module Sound.SC3.Server.Monad.Command (
+-- * Requests
+  Request
+, R.exec
+, R.exec_
+, Result
+, R.extract
+-- * Master controls
+, status
+, statusM
+, PrintLevel(..)
+, dumpOSC
+, clearSched
+, ErrorScope(..)
+, ErrorMode(..)
+, errorMode
+-- * Synth definitions
+, SynthDef(name)
+-- , d_recv
+, d_named
+, d_default
+, d_recv
+, d_load
+, d_loadDir
+, d_free
+-- * Resources
+-- ** Nodes
+, Node(..)
+, AddAction(..)
+, AbstractNode
+, node
+, n_after
+, n_before
+, n_fill
+, n_free
+, BusMapping(..)
+, n_query_
+, n_query
+, n_queryM
+, n_run_
+, n_set
+, n_setn
+, n_trace
+, n_order
+-- *** Synths
+, Synth(..)
+, s_new
+, s_new_
+, s_release
+, s_get
+, s_getn
+, s_noid
+-- *** Groups
+, Group(..)
+, rootNode
+, g_new
+, g_new_
+, g_deepFree
+, g_freeAll
+, g_head
+, g_tail
+, g_dumpTree
+--, g_queryTree
+-- ** Plugin Commands
+, cmd
+-- ** Unit Generator Commands
+, u_cmd
+-- ** Buffers
+, Buffer
+, bufferId
+, b_alloc
+, b_allocRead
+, b_allocReadChannel
+, b_read
+, b_readChannel
+, HeaderFormat(..)
+, SampleFormat(..)
+, b_write
+, b_free
+, b_zero
+, b_set
+, b_setn
+, b_fill
+, b_gen
+, b_sine1
+, b_sine2
+, b_sine3
+, b_cheby
+, b_copy
+, b_close
+, b_query
+, b_queryM
+--, b_get
+--, b_getn
+-- ** Buses
+, Bus(..)
+, AudioBus(audioBusIdRange)
+, audioBusId
+, inputBus
+, outputBus
+, newAudioBus
+, ControlBus(controlBusIdRange)
+, controlBusId
+, newControlBus
+-- *** Control Bus Commands
+--, c_set
+--, c_setn
+--, c_fill
+--, c_get
+--, c_getn
+) where
 
 --import qualified Codec.Compression.BZip as BZip
 --import qualified Codec.Digest.SHA as SHA
@@ -246,6 +245,7 @@ instance Node AbstractNode where
 instance Show AbstractNode where
     show (AbstractNode n) = show n
 
+-- | Construct an abstract node wrapper.
 node :: (Eq n, Node n, Show n) => n -> AbstractNode
 node = AbstractNode
 
@@ -314,6 +314,7 @@ n_query n = do
   n_query_ n
   waitFor (N.n_info (nodeId n))
 
+-- | Query a node.
 n_queryM :: (Node a, MonadIdAllocator m, MonadRecvOSC m, MonadIO m) => a -> m N.NodeNotification
 n_queryM = get . n_query
 
@@ -345,33 +346,39 @@ newtype Synth = Synth NodeId deriving (Eq, Ord, Show)
 instance Node Synth where
     nodeId (Synth nid) = nid
 
+-- | Create a new synth.
 s_new :: MonadIdAllocator m => SynthDef -> AddAction -> Group -> [(String, Double)] -> Request m Synth
 s_new d a g xs = do
     nid <- M.alloc M.nodeIdAllocator
     send $ C.s_new (name d) (fromIntegral nid) a (fromIntegral (nodeId g)) xs
     return $ Synth nid
 
+-- | Create a new synth in the root group.
 s_new_ :: (MonadServer m, MonadIdAllocator m) => SynthDef -> AddAction -> [(String, Double)] -> Request m Synth
 s_new_ d a xs = rootNode >>= \g -> s_new d a g xs
 
+-- | Release a synth with a "gate" envelope control.
 s_release :: MonadIdAllocator m => Double -> Synth -> Request m ()
 s_release r s = do
   send (C.n_set1 (fromIntegral nid) "gate" r)
   after_ (N.n_end_ nid) (M.free M.nodeIdAllocator nid)
   where nid = nodeId s
 
+-- | Get control values.
 s_get :: MonadIO m => Synth -> [String] -> Request m (Result [(Either Int String, Double)])
 s_get s cs = do
   send (C.s_get (fromIntegral nid) cs)
   waitFor (N.n_set nid)
   where nid = nodeId s
 
+-- | Get ranges of control values.
 s_getn :: MonadIO m => Synth -> [(String, Int)] -> Request m (Result [(Either Int String, [Double])])
 s_getn s cs = do
   send (C.s_getn (fromIntegral nid) cs)
   waitFor (N.n_setn nid)
   where nid = nodeId s
 
+-- | Free a synth's ID and auto-reassign it to a reserved value (the node is not freed!).
 s_noid :: MonadIdAllocator m => Synth -> Request m ()
 s_noid s = do
   send (C.s_noid [fromIntegral nid])
@@ -540,6 +547,7 @@ sampleFormatString PcmDouble = "double"
 sampleFormatString PcmMulaw  = "mulaw"
 sampleFormatString PcmAlaw   = "alaw"
 
+-- | Write sound file data. (Asynchronous)
 b_write :: MonadIO m =>
     Buffer
  -> FilePath
@@ -562,6 +570,7 @@ b_write (Buffer bid) path
                     (maybe (-1) id numFrames)
                     leaveOpen
 
+-- | Free buffer. (Asynchronous)
 b_free :: MonadIdAllocator m => Buffer -> Request m ()
 b_free b = mkAsync $ do
     let bid = bufferId b
@@ -569,6 +578,7 @@ b_free b = mkAsync $ do
     let f osc = (mkC C.b_free C.b_free' osc) (fromIntegral bid)
     return ((), f)
 
+-- | Zero sample data. (Asynchronous)
 b_zero :: MonadIO m => Buffer -> Request m ()
 b_zero buffer = mkAsync_ $ \osc ->
   (mkC C.b_zero C.b_zero' osc)
@@ -669,19 +679,22 @@ b_queryM = get . b_query
 
 -- | Abstract interface for control and audio rate buses.
 class Bus a where
-    rate :: a -> Rate
-    numChannels :: a -> Int
-    freeBus :: (MonadServer m, MonadIdAllocator m) => a -> m ()
+  -- | Rate of computation.
+  rate :: a -> Rate
+  -- | Number of channels.
+  numChannels :: a -> Int
+  -- | Free bus.
+  freeBus :: (MonadServer m, MonadIdAllocator m) => a -> m ()
 
 -- | Audio bus.
 newtype AudioBus = AudioBus { audioBusIdRange :: Range AudioBusId } deriving (Eq, Show)
 
+-- | Get audio bus id.
 audioBusId :: AudioBus -> AudioBusId
 audioBusId = Range.begin . audioBusIdRange
 
 instance Bus AudioBus where
     rate _ = AR
-    --busIdRange = audioBusId
     numChannels = Range.size . audioBusIdRange
     freeBus b = do
         hw <- isHardwareBus b
@@ -720,12 +733,12 @@ outputBus n i = do
 -- | Control bus.
 newtype ControlBus = ControlBus { controlBusIdRange :: Range ControlBusId } deriving (Eq, Show)
 
+-- | Get control bus ID.
 controlBusId :: ControlBus -> ControlBusId
 controlBusId = Range.begin . controlBusIdRange
 
 instance Bus ControlBus where
     rate _ = KR
-    --busIdRange = controlBusId
     numChannels = Range.size . controlBusIdRange
     freeBus = M.freeRange M.controlBusIdAllocator . controlBusIdRange
 

@@ -35,10 +35,15 @@ serverOption = flip liftM serverOptions
 class Monad m => MonadIdAllocator m where
   data Allocator m a
 
+  -- | 'NodeId' allocator.
   nodeIdAllocator       :: Allocator m NodeIdAllocator
+  -- | 'SyncId' allocator.
   syncIdAllocator       :: Allocator m SyncIdAllocator
+  -- | 'BufferId' allocator.
   bufferIdAllocator     :: Allocator m BufferIdAllocator
+  -- | 'AudioBusId' allocator.
   audioBusIdAllocator   :: Allocator m AudioBusIdAllocator
+  -- | 'ControlBusId' allocator.
   controlBusIdAllocator :: Allocator m ControlBusIdAllocator
 
   -- | Allocate an id using the given allocator.
