@@ -150,6 +150,7 @@ mkC _ f (Just osc) = f osc
 get :: (MonadIdAllocator m, MonadRecvOSC m, MonadIO m) => Request m (Result a) -> m a
 get m = R.exec_ m >>= R.extract
 
+withSync :: MonadIdAllocator m => OSC o => o -> Request m ()
 withSync c = do
   send c
   send =<< mkSync
