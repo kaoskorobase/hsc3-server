@@ -125,6 +125,7 @@ import           Sound.OpenSoundControl (Datum(..), Message(..), OSC(..))
 import           Sound.SC3 (Rate(..), UGen)
 import           Sound.SC3.Server.Allocator.Range (Range)
 import qualified Sound.SC3.Server.Allocator.Range as Range
+import qualified Sound.SC3.Server.Command.Completion as C
 import qualified Sound.SC3.Server.Monad as M
 import           Sound.SC3.Server.Monad.Class (MonadIdAllocator, MonadRecvOSC, MonadServer, send, serverOption)
 import           Sound.SC3.Server.Monad.Request (Request, Result, after_, finally, mkAsync, mkAsync_, mkSync, waitFor)
@@ -133,7 +134,6 @@ import qualified Sound.SC3.Server.Synthdef as Synthdef
 import           Sound.SC3.Server.Allocator (AllocFailure(..))
 import           Sound.SC3.Server.Command (AddAction(..), ErrorScope(..), ErrorMode(..), PrintLevel(..))
 import qualified Sound.SC3.Server.Command as C
-import qualified Sound.SC3.Server.Monad.Command.Completion as C
 import qualified Sound.SC3.Server.Notification as N
 import           Sound.SC3.Server.Process.Options (ServerOptions(..))
 import           Sound.SC3.Server.State (AudioBusId, BufferId, ControlBusId, NodeId)
@@ -169,9 +169,7 @@ statusM = get status
 -- | Select printing of incoming Open Sound Control messages.
 dumpOSC :: MonadIdAllocator m => PrintLevel -> Request m ()
 dumpOSC p = do
-  -- FIXME: Has been renamed to 'dumpMessage' in hsc3 0.12
-  --send (C.dumpOSC p)
-  send (Message "/dumpOSC" [Int (fromEnum p)])
+  send (C.dumpOSC p)
   send =<< mkSync
 
 -- | Remove all bundles from the scheduling queue.
