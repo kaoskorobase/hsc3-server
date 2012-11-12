@@ -87,11 +87,11 @@ module Sound.SC3.Server.Monad.Command (
 , b_setn
 , b_fill
 , b_gen
-, b_sine1
-, b_sine2
-, b_sine3
-, b_cheby
-, b_copy
+, b_gen_sine1
+, b_gen_sine2
+, b_gen_sine3
+, b_gen_cheby
+, b_gen_copy
 , b_close
 , b_query
 , b_queryM
@@ -121,7 +121,7 @@ import           Control.Arrow (first)
 import           Control.Failure (Failure, failure)
 import           Control.Monad (liftM, unless)
 import           Control.Monad.IO.Class (MonadIO)
-import           Sound.OpenSoundControl (Datum(..), Message(..), OSC(..))
+import           Sound.OpenSoundControl (Datum(..), OSC(..))
 import           Sound.SC3 (Rate(..), UGen)
 import           Sound.SC3.Server.Allocator.Range (Range)
 import qualified Sound.SC3.Server.Allocator.Range as Range
@@ -137,6 +137,7 @@ import qualified Sound.SC3.Server.Command as C
 import qualified Sound.SC3.Server.Notification as N
 import           Sound.SC3.Server.Process.Options (ServerOptions(..))
 import           Sound.SC3.Server.State (AudioBusId, BufferId, ControlBusId, NodeId)
+import           Sound.SC3.UGen.Enum (B_Gen)
 
 -- ====================================================================
 -- Utils
@@ -149,9 +150,9 @@ mkC _ f (Just osc) = f osc
 get :: (MonadIdAllocator m, MonadRecvOSC m, MonadIO m) => Request m (Result a) -> m a
 get m = R.exec_ m >>= R.extract
 
-bool :: Bool -> Datum
-bool True  = Int 1
-bool False = Int 0
+withSync c = do
+  send c
+  send =<< mkSync
 
 -- ====================================================================
 -- Master controls
@@ -168,9 +169,7 @@ statusM = get status
 
 -- | Select printing of incoming Open Sound Control messages.
 dumpOSC :: MonadIdAllocator m => PrintLevel -> Request m ()
-dumpOSC p = do
-  send (C.dumpOSC p)
-  send =<< mkSync
+dumpOSC p = withSync (C.dumpOSC p)
 
 -- | Remove all bundles from the scheduling queue.
 clearSched :: Monad m => Request m ()
@@ -598,39 +597,19 @@ b_fill buffer = send . C.b_fill (fromIntegral (bufferId buffer))
 
 -- | Call a command to fill a buffer. (Asynchronous)
 b_gen :: MonadIdAllocator m => Buffer -> String -> [Datum] -> Request m ()
-b_gen buffer cmd args = do
-  send $ Message "/b_gen"
-                 ( Int (fromIntegral (bufferId buffer))
-                 : String cmd
-                 : args )
-  send =<< mkSync
+b_gen buffer cmd = withSync . C.b_gen (fromIntegral (bufferId buffer)) cmd
 
 -- | Fill a buffer with partials, specifying amplitudes.
-b_sine1 :: MonadIdAllocator m => Buffer -> Bool -> Bool -> Bool -> [Double] -> Request m ()
-b_sine1 buffer normalize wavetable clear values =
-  b_gen buffer "sine1"
-    $ bool normalize
-    : bool wavetable
-    : bool clear
-    : map Float values
+b_gen_sine1 :: MonadIdAllocator m => Buffer -> [B_Gen] -> [Double] -> Request m ()
+b_gen_sine1 buffer flags = withSync . C.b_gen_sine1 (fromIntegral (bufferId buffer)) flags
 
 -- | Fill a buffer with partials, specifying frequencies (in cycles per buffer) and amplitudes.
-b_sine2 :: MonadIdAllocator m => Buffer -> Bool -> Bool -> Bool -> [(Double, Double)] -> Request m ()
-b_sine2 buffer normalize wavetable clear values =
-  b_gen buffer "sine2"
-    $ bool normalize
-    : bool wavetable
-    : bool clear
-    : concatMap (\(a, b) -> [Float a, Float b]) values
+b_gen_sine2 :: MonadIdAllocator m => Buffer -> [B_Gen] -> [(Double, Double)] -> Request m ()
+b_gen_sine2 buffer flags = withSync . C.b_gen_sine2 (fromIntegral (bufferId buffer)) flags
 
 -- | Fill a buffer with partials, specifying frequencies (in cycles per buffer), amplitudes and phases.
-b_sine3 :: MonadIdAllocator m => Buffer -> Bool -> Bool -> Bool -> [(Double, Double, Double)] -> Request m ()
-b_sine3 buffer normalize wavetable clear values =
-  b_gen buffer "sine3"
-    $ bool normalize
-    : bool wavetable
-    : bool clear
-    : concatMap (\(a, b, c) -> [Float a, Float b, Float c]) values
+b_gen_sine3 :: MonadIdAllocator m => Buffer -> [B_Gen] -> [(Double, Double, Double)] -> Request m ()
+b_gen_sine3 buffer flags = withSync . C.b_gen_sine3 (fromIntegral (bufferId buffer)) flags
 
 -- | Fills a buffer with a series of chebyshev polynomials.
 
@@ -642,23 +621,17 @@ b_sine3 buffer normalize wavetable clear values =
 -- value specifies the amplitude for n = 2, and so on. To eliminate a DC offset
 -- when used as a waveshaper, the wavetable is offset so that the center value
 -- is zero.
-b_cheby :: MonadIdAllocator m => Buffer -> Bool -> Bool -> Bool -> [Double] -> Request m ()
-b_cheby buffer normalize wavetable clear values =
-  b_gen buffer "cheby"
-    $ bool normalize
-    : bool wavetable
-    : bool clear
-    : map Float values
+b_gen_cheby :: MonadIdAllocator m => Buffer -> [B_Gen] -> [Double] -> Request m ()
+b_gen_cheby buffer flags = withSync . C.b_gen_cheby (fromIntegral (bufferId buffer)) flags
 
 -- | Copy samples from the source buffer to the destination buffer.
-b_copy :: MonadIdAllocator m => Buffer -> Int -> Buffer -> Int -> Maybe Int -> Request m ()
-b_copy buffer sampleOffset srcBuffer srcSampleOffset numSamples =
-  b_gen buffer "copy"
-    $ Int sampleOffset
-    : Int (fromIntegral (bufferId srcBuffer))
-    : Int srcSampleOffset
-    : Int (maybe (-1) id numSamples)
-    : []
+b_gen_copy :: MonadIdAllocator m => Buffer -> Int -> Buffer -> Int -> Maybe Int -> Request m ()
+b_gen_copy buffer sampleOffset srcBuffer srcSampleOffset numSamples =
+  withSync $ C.b_gen_copy (fromIntegral (bufferId buffer))
+                          sampleOffset
+                          (fromIntegral (bufferId srcBuffer))
+                          srcSampleOffset
+                          numSamples
 
 -- | Close attached soundfile and write header information. (Asynchronous)
 b_close :: Monad m => Buffer -> Request m ()
