@@ -13,7 +13,7 @@ License-File:       LICENSE
 Category:           Sound
 Copyright:          Copyright (c) Stefan Kersten 2008-2012
 Author:             Stefan Kersten
-Maintainer:         Stefan Kersten
+Maintainer:         kaoskorobase@gmail.com
 Homepage:           https://github.com/kaoskorobase/hsc3-server
 Tested-With:        GHC == 7.4
 Build-Type:         Simple
