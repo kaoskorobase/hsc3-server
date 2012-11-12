@@ -121,7 +121,7 @@ import           Control.Arrow (first)
 import           Control.Failure (Failure, failure)
 import           Control.Monad (liftM, unless)
 import           Control.Monad.IO.Class (MonadIO)
-import           Sound.OpenSoundControl (Datum(..), OSC(..))
+import           Sound.OpenSoundControl (Datum(..), Message(..), OSC(..))
 import           Sound.SC3 (Rate(..), UGen)
 import           Sound.SC3.Server.Allocator.Range (Range)
 import qualified Sound.SC3.Server.Allocator.Range as Range
@@ -133,7 +133,7 @@ import qualified Sound.SC3.Server.Synthdef as Synthdef
 import           Sound.SC3.Server.Allocator (AllocFailure(..))
 import           Sound.SC3.Server.Command (AddAction(..), ErrorScope(..), ErrorMode(..), PrintLevel(..))
 import qualified Sound.SC3.Server.Command as C
-import qualified Sound.SC3.Server.Command.Completion as C
+import qualified Sound.SC3.Server.Monad.Command.Completion as C
 import qualified Sound.SC3.Server.Notification as N
 import           Sound.SC3.Server.Process.Options (ServerOptions(..))
 import           Sound.SC3.Server.State (AudioBusId, BufferId, ControlBusId, NodeId)
@@ -142,7 +142,7 @@ import           Sound.SC3.Server.State (AudioBusId, BufferId, ControlBusId, Nod
 -- Utils
 
 -- | Construct a function suitable for 'mkAsync'.
-mkC :: a -> (OSC -> a) -> (Maybe OSC -> a)
+mkC :: OSC o => a -> (o -> a) -> (Maybe o -> a)
 mkC f _ Nothing    = f
 mkC _ f (Just osc) = f osc
 
@@ -169,7 +169,9 @@ statusM = get status
 -- | Select printing of incoming Open Sound Control messages.
 dumpOSC :: MonadIdAllocator m => PrintLevel -> Request m ()
 dumpOSC p = do
-  send (C.dumpOSC p)
+  -- FIXME: Has been renamed to 'dumpMessage' in hsc3 0.12
+  --send (C.dumpOSC p)
+  send (Message "/dumpOSC" [Int (fromEnum p)])
   send =<< mkSync
 
 -- | Remove all bundles from the scheduling queue.

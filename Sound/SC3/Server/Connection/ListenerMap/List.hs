@@ -1,12 +1,13 @@
+{-# Language Rank2Types #-}
 module Sound.SC3.Server.Connection.ListenerMap.List where
 
-import Sound.OpenSoundControl (OSC)
+import Sound.OpenSoundControl (Packet)
 
 type ListenerId  = Int
-type Listener    = OSC -> IO ()
+type Listener    = Packet -> IO ()
 data ListenerMap = ListenerMap [(ListenerId, Listener)] !ListenerId
 
-broadcast :: OSC -> ListenerMap -> IO ()
+broadcast :: Packet -> ListenerMap -> IO ()
 broadcast osc (ListenerMap m _) = mapM_ (\(_, l) -> l osc) m
 
 empty :: IO ListenerMap

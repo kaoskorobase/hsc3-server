@@ -2,13 +2,13 @@ module Sound.SC3.Server.Connection.ListenerMap.HashTable where
 
 
 import qualified Data.HashTable as Hash
-import           Sound.OpenSoundControl (OSC)
+import           Sound.OpenSoundControl (Packet)
 
 type ListenerId  = Int
-type Listener    = OSC -> IO ()
+type Listener    = Packet -> IO ()
 data ListenerMap = ListenerMap !(Hash.HashTable ListenerId Listener) !ListenerId
 
-broadcast :: OSC -> ListenerMap -> IO ()
+broadcast :: Packet -> ListenerMap -> IO ()
 broadcast osc (ListenerMap h _) = mapM_ (\(_, l) -> l osc) =<< Hash.toList h
 
 empty :: IO ListenerMap

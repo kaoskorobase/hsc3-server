@@ -56,16 +56,16 @@ class Monad m => MonadIdAllocator m where
   freeRange :: RangeAllocator a => Allocator m a -> Range (Id a) -> m ()
 
 class Monad m => MonadSendOSC m where
-  send :: OSC -> m ()
+  send :: OSC o => o -> m ()
 
 class MonadSendOSC m => MonadRecvOSC m where
   -- | Wait for a notification and return the result.
-  waitFor :: OSC -> Notification a -> m a
+  waitFor :: OSC o => o -> Notification a -> m a
   -- | Wait for a notification and ignore the result.
-  waitFor_ :: OSC -> Notification a -> m ()
+  waitFor_ :: OSC o => o -> Notification a -> m ()
   waitFor_ osc n = waitFor osc n >> return ()
   -- | Wait for a set of notifications and return their results in unspecified order.
-  waitForAll :: OSC -> [Notification a] -> m [a]
+  waitForAll :: OSC o => o -> [Notification a] -> m [a]
   -- | Wait for a set of notifications and ignore their results.
-  waitForAll_ :: OSC -> [Notification a] -> m ()
+  waitForAll_ :: OSC o => o -> [Notification a] -> m ()
   waitForAll_ osc ns = waitForAll osc ns >> return ()

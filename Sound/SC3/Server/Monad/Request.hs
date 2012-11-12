@@ -28,14 +28,14 @@ import           Sound.SC3.Server.Monad.Class (MonadIdAllocator(..), MonadRecvOS
 import qualified Sound.SC3.Server.Monad.Class as M
 import           Sound.SC3.Server.Notification (Notification)
 import qualified Sound.SC3.Server.Notification as N
-import           Sound.OpenSoundControl (OSC(..), Time, immediately)
+import           Sound.OpenSoundControl (Bundle(..), Message(..), OSC(..), Time, immediately, packetMessages)
 
 data Builder =
     BuildDone
-  | BuildSync OSC Builder
-  | BuildAsync (Maybe OSC -> OSC) Builder
+  | BuildSync Message Builder
+  | BuildAsync (Maybe Bundle -> Message) Builder
 
-compile :: Time -> Builder -> OSC
+compile :: Time -> Builder -> Bundle
 compile t rs = go t rs []
   where
     go t BuildDone ps = Bundle t ps
@@ -100,8 +100,12 @@ instance MonadIdAllocator m => MonadIdAllocator (Request m) where
 -- | Bundles are flattened into the resulting bundle because @scsynth@ doesn't
 -- support nested bundles.
 instance Monad m => MonadSendOSC (Request m) where
-  send osc@(Message _ _) = modify $ \s -> s { requests = BuildSync osc (requests s) }
-  send (Bundle _ xs)     = mapM_ M.send xs
+  send osc = modify $ \s ->
+              s { requests = build
+                              (requests s)
+                              (packetMessages (toPacket osc)) }
+    where build bs [] = bs
+          build bs (a:as) = build (BuildSync a bs) as
 
 -- | Allocation action newtype wrapper.
 newtype AllocT m a = AllocT (m a)
@@ -162,7 +166,7 @@ finally (AllocT m) = modify $ \s -> s { cleanup = cleanup s >> m }
 -- The first return value should be a server resource allocated on the client,
 -- the second a function that, given a completion packet, returns an OSC packet
 -- that asynchronously allocates the resource on the server.
-mkAsync :: Monad m => AllocT m (a, (Maybe OSC -> OSC)) -> Request m a
+mkAsync :: Monad m => AllocT m (a, (Maybe Bundle -> Message)) -> Request m a
 mkAsync (AllocT m) = do
   (a, f) <- lift m
   modify $ \s -> s { requests = BuildAsync f (requests s)
@@ -171,11 +175,11 @@ mkAsync (AllocT m) = do
 
 -- | Create an asynchronous command from an OSC function that has side effects
 --   only on the server.
-mkAsync_ :: Monad m => (Maybe OSC -> OSC) -> Request m ()
+mkAsync_ :: Monad m => (Maybe Bundle -> Message) -> Request m ()
 mkAsync_ f = mkAsync $ return ((), f)
 
 -- | Create a synchronisation barrier message.
-mkSync :: MonadIdAllocator m => Request m OSC
+mkSync :: MonadIdAllocator m => Request m Message
 mkSync = do
   sid <- lift $ M.alloc M.syncIdAllocator
   after_ (N.synced sid) (M.free M.syncIdAllocator sid)
@@ -194,7 +198,7 @@ finish r = do
 
 -- | Run a request, returning the action's result, an OSC packet,
 --   a list of notifications to synchronise on and a cleanup action.
-runRequest :: (MonadIdAllocator m, MonadRecvOSC m) => Time -> Request m a -> m (a, Maybe (OSC, [Notification (m ())]), m ())
+runRequest :: (MonadIdAllocator m, MonadRecvOSC m) => Time -> Request m a -> m (a, Maybe (Bundle, [Notification (m ())]), m ())
 runRequest t r = do
   let Request m = finish r
   (a, s) <- State.runStateT m emptyState
@@ -205,7 +209,7 @@ runRequest t r = do
 
 -- | Execute a request.
 --
--- The commands after the last asynchronous command will be schedule at the given time.
+-- The commands after the last asynchronous command will be scheduled at the given time.
 exec :: (MonadIdAllocator m, MonadRecvOSC m) => Time -> Request m a -> m a
 exec t r = do
   let Request m = finish r

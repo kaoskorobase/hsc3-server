@@ -49,8 +49,8 @@ Library
       , bitset >= 1.0 && < 1.2
       , containers >= 0.2 && < 0.6
       , failure >= 0.2 && < 0.3
-      , hosc >= 0.8 && < 0.12
-      , hsc3 >= 0.11 && < 0.12
+      , hosc >= 0.12 && < 0.13
+      , hsc3 >= 0.12 && < 0.13
       , hsc3-process == 0.8.*
       , lifted-base >= 0.1 && < 0.3
       , monad-control >= 0.3 && < 0.4
@@ -77,8 +77,8 @@ Executable hsc3-hello
       , bitset >= 1.0 && < 1.2
       , containers >= 0.2 && < 0.6
       , failure >= 0.2 && < 0.3
-      , hosc >= 0.8 && < 0.12
-      , hsc3 >= 0.11 && < 0.12
+      , hosc >= 0.12 && < 0.13
+      , hsc3 >= 0.12 && < 0.13
       , hsc3-process == 0.8.*
       , lifted-base >= 0.1 && < 0.3
       , monad-control >= 0.3 && < 0.4
@@ -99,8 +99,8 @@ Executable hsc3-sine-grains
       , bitset >= 1.0 && < 1.2
       , containers >= 0.2 && < 0.6
       , failure >= 0.2 && < 0.3
-      , hosc >= 0.8 && < 0.12
-      , hsc3 >= 0.11 && < 0.12
+      , hosc >= 0.12 && < 0.13
+      , hsc3 >= 0.12 && < 0.13
       , hsc3-process == 0.8.*
       , lifted-base >= 0.1 && < 0.3
       , monad-control >= 0.3 && < 0.4
@@ -108,7 +108,7 @@ Executable hsc3-sine-grains
       , resourcet >= 0.3 && < 0.5
       , transformers >= 0.2 && < 0.4
       , transformers-base >= 0.4 && < 0.5
-      , unix >= 2.5 && < 2.6
+      , unix >= 2.5 && < 2.7
     Ghc-Options:
         -rtsopts -threaded
 

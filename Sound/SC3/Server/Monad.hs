@@ -44,7 +44,7 @@ import           Control.Monad.IO.Class (MonadIO, liftIO)
 import           Control.Monad.Trans.Control (MonadBaseControl(..))
 import           Control.Monad.Trans.Reader (ReaderT(..))
 import qualified Control.Monad.Trans.Reader as R
-import           Sound.OpenSoundControl (Datum(..), OSC(..), immediately)
+import           Sound.OpenSoundControl (Bundle(..), Datum(Int), Message(..), OSC, Packet(..), immediately)
 import qualified Sound.SC3.Server.Allocator as A
 import           Sound.SC3.Server.Command (notify)
 import           Sound.SC3.Server.Connection (Connection)
@@ -101,7 +101,7 @@ runServer (Server r) so c =
     new :: MonadIO m => (State.Allocators -> a) -> m (MVar a)
     new f = liftIO $ newMVar (f as)
     -- Register with server to receive notifications.
-    (Server init) = sync (Bundle immediately [notify True])
+    (Server init) = sync (Packet_Bundle (Bundle immediately [notify True]))
 
 instance MonadServer Server where
   serverOptions = Server $ R.asks _serverOptions
@@ -135,7 +135,7 @@ instance MonadIdAllocator Server where
 withConnection :: (Connection -> IO a) -> Server a
 withConnection f = Server $ R.asks _connection >>= \c -> liftIO (f c)
 
-sendC :: Connection -> OSC -> IO ()
+sendC :: OSC o => Connection -> o -> IO ()
 sendC c osc = do
   -- TODO: Make this configurable
   --print osc
@@ -147,7 +147,7 @@ instance MonadSendOSC Server where
 -- | Send an OSC packet and wait for a notification.
 --
 -- Returns the transformed value.
-_waitFor :: Connection -> OSC -> Notification a -> IO a
+_waitFor :: OSC o => Connection -> o -> Notification a -> IO a
 _waitFor c osc n = do
   res <- Conc.newEmptyMVar
   uid <- C.addListener c (C.notificationListener (Conc.putMVar res) n)
@@ -159,7 +159,7 @@ _waitFor c osc n = do
 -- | Send an OSC packet and wait for a list of notifications.
 --
 -- Returns the transformed values, in unspecified order.
-_waitForAll :: Connection -> OSC -> [Notification a] -> IO [a]
+_waitForAll :: OSC o => Connection -> o -> [Notification a] -> IO [a]
 _waitForAll c osc [] =
   sendC c osc >> return []
 _waitForAll c osc ns = do
@@ -175,15 +175,15 @@ instance MonadRecvOSC Server where
   waitForAll osc ns = withConnection $ \c -> _waitForAll c osc ns
 
 -- | Append a @\/sync@ message to an OSC packet.
-appendSync :: OSC -> SyncId -> OSC
+appendSync :: Packet -> SyncId -> Packet
 appendSync p i =
   case p of
-    m@(Message _ _) -> Bundle immediately [m, s]
-    (Bundle t xs)   -> Bundle t (xs ++ [s])
+    Packet_Message m -> Packet_Bundle (Bundle immediately [m, s])
+    Packet_Bundle (Bundle t xs) -> Packet_Bundle (Bundle t (xs ++ [s]))
   where s = Message "/sync" [Int (fromIntegral i)]
 
 -- | Send an OSC packet and wait for the synchronization barrier.
-sync :: OSC -> Server ()
+sync :: Packet -> Server ()
 sync osc = do
   i <- alloc syncIdAllocator
   waitFor_ (osc `appendSync` i) (synced i)
@@ -192,7 +192,7 @@ sync osc = do
 -- NOTE: This is only guaranteed to work with a transport that preserves
 -- packet order. NOTE 2: And not even then ;)
 unsafeSync :: Server ()
-unsafeSync = sync (Bundle immediately [])
+unsafeSync = sync (Packet_Bundle (Bundle immediately []))
 
 -- | Fork a computation in a new thread and return the thread id.
 --

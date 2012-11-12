@@ -18,10 +18,10 @@ module Sound.SC3.Server.Notification (
 
 import Control.Applicative (pure, (<*>))
 import Sound.SC3.Server.State (BufferId, NodeId, SyncId)
-import Sound.OpenSoundControl (OSC(..), Datum(..))
+import Sound.OpenSoundControl (Datum(..), Message(..))
 
--- | A notification transformer, extracting a value from a matching OSC packet.
-newtype Notification a = Notification { match :: OSC -> Maybe a }
+-- | A notification transformer, extracting a value from a matching OSC message.
+newtype Notification a = Notification { match :: Message -> Maybe a }
 
 instance Functor Notification where
     fmap f = Notification . (.) (fmap f) . match
@@ -29,11 +29,11 @@ instance Functor Notification where
 -- | Wait for an OSC message matching a specific address.
 --
 -- Returns the matched OSC message.
-hasAddress :: String -> Notification OSC
+hasAddress :: String -> Notification Message
 hasAddress a = Notification f
     where
-        f m@(Message a' _) = if a == a' then Just m else Nothing
-        f _                = Nothing
+        f p@(Message a' _) | a == a' = Just p
+        f _ = Nothing
 
 data Status = Status {
     numUGens          :: Int
@@ -58,7 +58,7 @@ tr n = Notification . f
     where
         f (Just i) (Message "/tr" [Int n', Int i', Float r])
             | fromIntegral n == n' && i == i' = Just r
-        f Nothing  (Message "/tr" [Int n', Int _, Float r])
+        f Nothing (Message "/tr" [Int n', Int _, Float r])
             | fromIntegral n == n' = Just r
         f _ _ = Nothing
 
@@ -66,7 +66,7 @@ synced :: SyncId -> Notification SyncId
 synced i = Notification f
     where
         f (Message "/synced" [Int j]) | fromIntegral j == i = Just i
-        f _                                                 = Nothing
+        f _ = Nothing
 
 normalize :: String -> String
 normalize ('/':s) = s
@@ -76,7 +76,7 @@ done :: String -> Notification [Datum]
 done c = Notification f
     where
         f (Message "/done" (String s:xs)) | normalize c == normalize s = Just xs
-        f _                                                            = Nothing
+        f _ = Nothing
 
 data NodeNotification =
     SynthNotification {
@@ -114,7 +114,7 @@ n_notification s nid = Notification f
         nodeIdToMaybe i    = Just (fromIntegral i)
         f osc =
             case osc of
-                (Message s' (Int nid':xs)) ->
+                Message s' (Int nid':xs) ->
                     if s == s' && fromIntegral nid == nid'
                     then case xs of
                             (Int g:Int p:Int n:Int b:rest) ->

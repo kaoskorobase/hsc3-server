@@ -24,8 +24,8 @@ import           Control.Concurrent (forkIO)
 import           Control.Concurrent.MVar
 import qualified Control.Exception as E
 import           Control.Monad (void)
-import           Sound.OpenSoundControl (OSC(..), Transport)
-import qualified Sound.OpenSoundControl as OSC
+import           Sound.OSC.FD (OSC(..), Packet, Transport, packet_to_message)
+import qualified Sound.OSC.FD as OSC
 import           Sound.SC3.Server.Notification (Notification(..))
 import           Sound.SC3.Server.Connection.ListenerMap (Listener, ListenerId, ListenerMap)
 import qualified Sound.SC3.Server.Connection.ListenerMap as ListenerMap
@@ -35,8 +35,8 @@ data Connection  = forall t . Transport t => Connection t (MVar ListenerMap)
 listeners :: Connection -> MVar ListenerMap
 listeners (Connection _ l) = l
 
-try_recv :: Transport t => t -> IO (Either E.SomeException OSC)
-try_recv = E.try . OSC.recv
+try_recv :: Transport t => t -> IO (Either E.SomeException Packet)
+try_recv = E.try . OSC.recvPacket
 
 recvLoop :: Connection -> IO ()
 recvLoop c@(Connection t ls) = do
@@ -62,18 +62,15 @@ close :: Connection -> IO ()
 close (Connection t _) = OSC.close t
 
 -- | Send an OSC packet asynchronously.
-send :: Connection -> OSC -> IO ()
-send (Connection t _) = OSC.send t
+send :: OSC o => Connection -> o -> IO ()
+send (Connection t _) = OSC.sendOSC t
 
 -- ====================================================================
 -- Listeners
 
 -- | Create a listener from an IO action and a notification.
 notificationListener :: (a -> IO ()) -> Notification a -> Listener
-notificationListener f n osc =
-  case n `match` osc of
-    Nothing -> return ()
-    Just a  -> f a
+notificationListener f n osc = maybe (return ()) f (match n =<< packet_to_message osc)
 
 -- | Add a listener to the listener map.
 addListener :: Connection -> Listener -> IO ListenerId
