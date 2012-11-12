@@ -42,6 +42,7 @@ Library
         Sound.SC3.Server.Connection.ListenerMap
         Sound.SC3.Server.Connection.ListenerMap.HashTable
         Sound.SC3.Server.Connection.ListenerMap.List
+        Sound.SC3.Server.Monad.Command.Completion
         Sound.SC3.Server.Monad.Request
         Sound.SC3.Server.State
     Build-Depends:
