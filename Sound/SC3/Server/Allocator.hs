@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -11,6 +12,8 @@ module Sound.SC3.Server.Allocator (
 , percentUsed
   -- * Allocator classes
 , IdAllocator(..)
+, allocMany
+, freeMany
 , RangeAllocator(..)
 ) where
 
@@ -66,6 +69,26 @@ class IdAllocator a where
 
   -- | Return usage statistics.
   statistics :: a -> Statistics
+
+-- | Allocate a number of (not necessarily consecutive) IDs with the given allocator.
+--
+-- Returns the list of IDs and the modified allocator.
+allocMany :: (IdAllocator a, Failure AllocFailure m) => Int -> a -> m ([Id a], a)
+allocMany n a = go n a []
+  where
+    go 0 a is = return (is, a)
+    go !n !a is = do
+      (i, a') <- alloc a
+      go (n-1) a' (i:is)
+
+-- | Free a number of IDs with the given allocator.
+--
+-- Returns the modified allocator.
+freeMany :: (IdAllocator a, Failure AllocFailure m) => [Id a] -> a -> m a
+freeMany is a = go is a
+  where
+    go [] a = return a
+    go (i:is) a = free i a >>= go is
 
 -- | RangeAllocator provides an interface for allocating and releasing ranges
 --   of consecutive identifiers.
