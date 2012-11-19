@@ -24,7 +24,10 @@ import Prelude hiding (last, null)
 data Range a = Range {
     begin :: !a
   , end :: !a
-  } deriving (Eq, Show)
+  } deriving (Eq)
+
+instance Show a => Show (Range a) where
+  show r = unwords ["Range", show (begin r), show (end r)]
 
 mkRange :: a -> a -> Range a
 mkRange a b = Range a b
