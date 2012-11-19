@@ -128,3 +128,5 @@ Test-Suite hsc3-server-test
       , test-framework-quickcheck2
       , transformers >= 0.2
     Hs-Source-Dirs: tests, .
+    Ghc-Options:
+        -W -rtsopts -threaded
