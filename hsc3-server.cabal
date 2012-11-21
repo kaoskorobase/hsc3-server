@@ -49,6 +49,7 @@ Library
       , bitset >= 1.0 && < 1.2
       , containers >= 0.2 && < 0.6
       , failure >= 0.2 && < 0.3
+      , data-default >= 0.5
       , hosc >= 0.13
       , hsc3 >= 0.13
       , hsc3-process == 0.8.*
