@@ -78,7 +78,7 @@ module Sound.SC3.Server.Monad.Command (
 , b_allocReadChannel
 , b_read
 , b_readChannel
-, HeaderFormat(..)
+, SoundFileFormat(..)
 , SampleFormat(..)
 , b_write
 , b_free
@@ -134,6 +134,7 @@ import qualified Sound.SC3.Server.Synthdef as Synthdef
 import           Sound.SC3.Server.Allocator (AllocFailure(..))
 import           Sound.SC3.Server.Command (AddAction(..), ErrorScope(..), ErrorMode(..), PrintLevel(..))
 import qualified Sound.SC3.Server.Command as C
+import           Sound.SC3.Server.Enum (SoundFileFormat(..), SampleFormat(..))
 import qualified Sound.SC3.Server.Notification as N
 import           Sound.SC3.Server.Process.Options (ServerOptions(..))
 import           Sound.SC3.Server.State (AudioBusId, BufferId, ControlBusId, NodeId)
@@ -511,61 +512,25 @@ b_readChannel (Buffer bid) path fileOffset numFrames bufferOffset leaveOpen chan
                       leaveOpen
                       channels
 
-data HeaderFormat =
-    Aiff
-  | Next
-  | Wav
-  | Ircam
-  | Raw
-  deriving (Enum, Eq, Read, Show)
-
-data SampleFormat =
-    PcmInt8
-  | PcmInt16
-  | PcmInt24
-  | PcmInt32
-  | PcmFloat
-  | PcmDouble
-  | PcmMulaw
-  | PcmAlaw
-  deriving (Enum, Eq, Read, Show)
-
-headerFormatString :: HeaderFormat -> String
-headerFormatString Aiff  = "aiff"
-headerFormatString Next  = "next"
-headerFormatString Wav   = "wav"
-headerFormatString Ircam = "ircam"
-headerFormatString Raw   = "raw"
-
-sampleFormatString :: SampleFormat -> String
-sampleFormatString PcmInt8   = "int8"
-sampleFormatString PcmInt16  = "int16"
-sampleFormatString PcmInt24  = "int24"
-sampleFormatString PcmInt32  = "int32"
-sampleFormatString PcmFloat  = "float"
-sampleFormatString PcmDouble = "double"
-sampleFormatString PcmMulaw  = "mulaw"
-sampleFormatString PcmAlaw   = "alaw"
-
 -- | Write sound file data. (Asynchronous)
 b_write :: MonadIO m =>
     Buffer
  -> FilePath
- -> HeaderFormat
+ -> SoundFileFormat
  -> SampleFormat
  -> Maybe Int
  -> Maybe Int
  -> Bool
  -> Request m ()
 b_write (Buffer bid) path
-        headerFormat sampleFormat
+        soundFileFormat sampleFormat
         fileOffset numFrames
         leaveOpen = mkAsync_ f
     where
         f osc = (mkC C.b_write C.b_write' osc)
                     (fromIntegral bid) path
-                    (headerFormatString headerFormat)
-                    (sampleFormatString sampleFormat)
+                    soundFileFormat
+                    sampleFormat
                     (maybe 0 id fileOffset)
                     (maybe (-1) id numFrames)
                     leaveOpen
