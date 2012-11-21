@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
-module Sound.SC3.Server.Monad.Request (
+module Sound.SC3.Server.State.Monad.Request (
   Request
 , runRequest
 , exec
@@ -24,10 +24,10 @@ import qualified Control.Monad.Trans.Class as Trans
 import qualified Control.Monad.Trans.State as State
 import           Data.IORef (newIORef, readIORef, writeIORef)
 import qualified Sound.SC3.Server.Command as C
-import           Sound.SC3.Server.Monad.Class (MonadIdAllocator(..), MonadRecvOSC, MonadSendOSC, MonadServer)
-import qualified Sound.SC3.Server.Monad.Class as M
 import           Sound.SC3.Server.Notification (Notification)
 import qualified Sound.SC3.Server.Notification as N
+import           Sound.SC3.Server.State.Monad.Class (MonadIdAllocator(..), MonadRecvOSC, MonadSendOSC, MonadServer)
+import qualified Sound.SC3.Server.State.Monad.Class as M
 import           Sound.OpenSoundControl (Bundle(..), Message(..), OSC(..), Time, immediately, packetMessages)
 
 data Builder =

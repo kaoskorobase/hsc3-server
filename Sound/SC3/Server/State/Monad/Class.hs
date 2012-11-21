@@ -1,6 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeFamilies #-}
-module Sound.SC3.Server.Monad.Class (
+module Sound.SC3.Server.State.Monad.Class (
   MonadServer(..)
 , serverOption
 , MonadIdAllocator(..)

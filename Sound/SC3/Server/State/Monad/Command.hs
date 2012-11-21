@@ -3,7 +3,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-module Sound.SC3.Server.Monad.Command (
+module Sound.SC3.Server.State.Monad.Command (
 -- * Requests
   Request
 , R.exec
@@ -126,10 +126,6 @@ import           Sound.SC3 (Rate(..), UGen)
 import           Sound.SC3.Server.Allocator.Range (Range)
 import qualified Sound.SC3.Server.Allocator.Range as Range
 import qualified Sound.SC3.Server.Command.Completion as C
-import qualified Sound.SC3.Server.Monad as M
-import           Sound.SC3.Server.Monad.Class (MonadIdAllocator, MonadRecvOSC, MonadServer, send, serverOption)
-import           Sound.SC3.Server.Monad.Request (Request, Result, after_, finally, mkAsync, mkAsync_, mkSync, waitFor)
-import qualified Sound.SC3.Server.Monad.Request as R
 import qualified Sound.SC3.Server.Synthdef as Synthdef
 import           Sound.SC3.Server.Allocator (AllocFailure(..))
 import           Sound.SC3.Server.Command (AddAction(..), ErrorScope(..), ErrorMode(..), PrintLevel(..))
@@ -138,6 +134,10 @@ import           Sound.SC3.Server.Enum (SoundFileFormat(..), SampleFormat(..))
 import qualified Sound.SC3.Server.Notification as N
 import           Sound.SC3.Server.Process.Options (ServerOptions(..))
 import           Sound.SC3.Server.State (AudioBusId, BufferId, ControlBusId, NodeId)
+import qualified Sound.SC3.Server.State.Monad as M
+import           Sound.SC3.Server.State.Monad.Class (MonadIdAllocator, MonadRecvOSC, MonadServer, send, serverOption)
+import           Sound.SC3.Server.State.Monad.Request (Request, Result, after_, finally, mkAsync, mkAsync_, mkSync, waitFor)
+import qualified Sound.SC3.Server.State.Monad.Request as R
 import           Sound.SC3.UGen.Enum (B_Gen)
 
 -- ====================================================================

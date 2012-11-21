@@ -26,38 +26,38 @@ Flag build-examples
 Library
     Exposed-Modules:
         Sound.SC3.Server.Allocator
-        Sound.SC3.Server.Allocator.Range
-        Sound.SC3.Server.Monad
-        Sound.SC3.Server.Monad.Class
-        Sound.SC3.Server.Monad.Command
-        Sound.SC3.Server.Monad.Process
-        Sound.SC3.Server.Notification
-    Other-Modules:
         Sound.SC3.Server.Allocator.BlockAllocator.FirstFit
-        Sound.SC3.Server.Allocator.BlockAllocator.FreeList
+        Sound.SC3.Server.Allocator.Range
         Sound.SC3.Server.Allocator.SetAllocator
         Sound.SC3.Server.Allocator.SimpleAllocator
         Sound.SC3.Server.Allocator.Wrapped
+        Sound.SC3.Server.State.Monad
+        Sound.SC3.Server.State.Monad.Class
+        Sound.SC3.Server.State.Monad.Command
+        Sound.SC3.Server.State.Monad.Process
+        Sound.SC3.Server.Notification
+    Other-Modules:
+        Sound.SC3.Server.Allocator.BlockAllocator.FreeList
         Sound.SC3.Server.Connection
         Sound.SC3.Server.Connection.ListenerMap
         Sound.SC3.Server.Connection.ListenerMap.HashTable
         Sound.SC3.Server.Connection.ListenerMap.List
-        Sound.SC3.Server.Monad.Request
+        Sound.SC3.Server.State.Monad.Request
         Sound.SC3.Server.State
     Build-Depends:
         base >= 4.3 && < 5
-      , bitset >= 1.0 && < 1.2
-      , containers >= 0.2 && < 0.6
-      , failure >= 0.2 && < 0.3
+      , bitset >= 1.0
+      , containers >= 0.2
       , data-default >= 0.5
+      , failure >= 0.2
       , hosc >= 0.13
       , hsc3 >= 0.13
       , hsc3-process == 0.8.*
-      , lifted-base >= 0.1 && < 0.3
-      , monad-control >= 0.3 && < 0.4
-      , resourcet >= 0.3 && < 0.5
-      , transformers >= 0.2 && < 0.4
-      , transformers-base >= 0.4 && < 0.5
+      , lifted-base >= 0.1
+      , monad-control >= 0.3
+      , resourcet >= 0.3
+      , transformers >= 0.2
+      , transformers-base >= 0.4
     Ghc-Options:
         -W
     Ghc-Prof-Options:
@@ -68,47 +68,35 @@ Source-Repository head
     Location:   git://github.com/kaoskorobase/hsc3-server.git
 
 Executable hsc3-hello
-    Main-Is: examples/hello.hs
+    Main-Is: hello.hs
+    Hs-Source-Dirs: examples
     if flag(build-examples)
         Buildable: True
     else
         Buildable: False
     Build-Depends:
         base >= 4.3 && < 5
-      , bitset >= 1.0 && < 1.2
-      , containers >= 0.2 && < 0.6
-      , failure >= 0.2 && < 0.3
       , hosc >= 0.13
       , hsc3 >= 0.13
-      , hsc3-process == 0.8.*
-      , lifted-base >= 0.1 && < 0.3
-      , monad-control >= 0.3 && < 0.4
-      , resourcet >= 0.3 && < 0.5
-      , transformers >= 0.2 && < 0.4
-      , transformers-base >= 0.4 && < 0.5
+      , hsc3-server >= 0.5
+      , transformers >= 0.2
     Ghc-Options:
         -rtsopts -threaded
 
 Executable hsc3-sine-grains
-    Main-Is: examples/sine-grains.hs
+    Main-Is: sine-grains.hs
+    Hs-Source-Dirs: examples
     if flag(build-examples)
         Buildable: True
     else
         Buildable: False
     Build-Depends:
         base >= 4.3 && < 5
-      , bitset >= 1.0 && < 1.2
-      , containers >= 0.2 && < 0.6
-      , failure >= 0.2 && < 0.3
       , hosc >= 0.13
       , hsc3 >= 0.13
-      , hsc3-process == 0.8.*
-      , lifted-base >= 0.1 && < 0.3
-      , monad-control >= 0.3 && < 0.4
-      , random >= 1.0 && < 1.1
-      , resourcet >= 0.3 && < 0.5
-      , transformers >= 0.2 && < 0.4
-      , transformers-base >= 0.4 && < 0.5
+      , hsc3-server >= 0.5
+      , random >= 1.0
+      , transformers >= 0.2
       , unix >= 2.5
     Ghc-Options:
         -rtsopts -threaded
@@ -116,18 +104,24 @@ Executable hsc3-sine-grains
 Test-Suite hsc3-server-test
     Type: exitcode-stdio-1.0
     Main-Is: test.hs
+    Hs-Source-Dirs: tests
     Other-Modules:
         Sound.SC3.Server.Allocator.Test
         Sound.SC3.Server.Allocator.Range.Test
     Build-Depends:
         base >= 4.3 && < 5
-      , bitset >= 1.0
-      , failure >= 0.1
+      , failure >= 0.2
+      , hsc3-server >= 0.5
       , QuickCheck >= 2.4
-      , random >= 1.0
+      , random
       , test-framework
       , test-framework-quickcheck2
       , transformers >= 0.2
-    Hs-Source-Dirs: tests, .
     Ghc-Options:
         -W -rtsopts -threaded
+
+-- Test-Suite hsc3-server-doctests
+--     Type:          exitcode-stdio-1.0
+--     Ghc-Options:   -threaded
+--     Main-Is:       tests/doctests.hs
+--     Build-Depends: base, doctest >= 0.8

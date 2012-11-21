@@ -5,7 +5,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Sound.SC3.Server.Monad (
+module Sound.SC3.Server.State.Monad (
 -- * Server Monad
   Server
 , runServer
@@ -49,7 +49,6 @@ import qualified Sound.SC3.Server.Allocator as A
 import           Sound.SC3.Server.Command (notify)
 import           Sound.SC3.Server.Connection (Connection)
 import qualified Sound.SC3.Server.Connection as C
-import           Sound.SC3.Server.Monad.Class
 import           Sound.SC3.Server.Notification (Notification, synced)
 import           Sound.SC3.Server.Process.Options (ServerOptions)
 import           Sound.SC3.Server.State ( AudioBusId, AudioBusIdAllocator
@@ -59,6 +58,7 @@ import           Sound.SC3.Server.State ( AudioBusId, AudioBusIdAllocator
                                         , SyncId, SyncIdAllocator
                                         )
 import qualified Sound.SC3.Server.State as State
+import           Sound.SC3.Server.State.Monad.Class
 
 data State = State {
     _serverOptions         :: ServerOptions
