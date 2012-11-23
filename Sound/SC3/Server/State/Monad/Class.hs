@@ -11,6 +11,7 @@ module Sound.SC3.Server.State.Monad.Class (
 import           Control.Monad (liftM)
 import           Sound.OpenSoundControl (OSC)
 import           Sound.SC3.Server.Allocator (Id, IdAllocator, RangeAllocator)
+import           Sound.SC3.Server.Allocator (Id, IdAllocator, RangeAllocator, Statistics)
 import           Sound.SC3.Server.Allocator.Range (Range)
 import           Sound.SC3.Server.Notification (Notification)
 import           Sound.SC3.Server.State ( AudioBusIdAllocator
@@ -50,6 +51,9 @@ class Monad m => MonadIdAllocator m where
   alloc :: IdAllocator a => Allocator m a -> m (Id a)
   -- | Free an id using the given allocator.
   free :: IdAllocator a => Allocator m a -> Id a -> m ()
+  -- | Return allocator statistics
+  statistics :: IdAllocator a => Allocator m a -> m Statistics
+
   -- | Allocate a contiguous range of ids using the given allocator.
   allocRange :: RangeAllocator a => Allocator m a -> Int -> m (Range (Id a))
   -- | Free a contiguous range of ids using the given allocator.

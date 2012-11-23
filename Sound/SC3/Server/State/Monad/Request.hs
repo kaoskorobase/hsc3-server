@@ -94,6 +94,7 @@ instance MonadIdAllocator m => MonadIdAllocator (Request m) where
 
   alloc (Request_Allocator a)      = lift $ M.alloc a
   free (Request_Allocator a)       = lift . M.free a
+  statistics (Request_Allocator a) = lift $ M.statistics a
   allocRange (Request_Allocator a) = lift . M.allocRange a
   freeRange (Request_Allocator a)  = lift . M.freeRange a
 
