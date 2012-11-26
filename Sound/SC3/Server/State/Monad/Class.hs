@@ -10,7 +10,6 @@ module Sound.SC3.Server.State.Monad.Class (
 
 import           Control.Monad (liftM)
 import           Sound.OpenSoundControl (OSC)
-import           Sound.SC3.Server.Allocator (Id, IdAllocator, RangeAllocator)
 import           Sound.SC3.Server.Allocator (Id, IdAllocator, RangeAllocator, Statistics)
 import           Sound.SC3.Server.Allocator.Range (Range)
 import           Sound.SC3.Server.Notification (Notification)
