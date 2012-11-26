@@ -123,6 +123,7 @@ instance MonadIdAllocator m => MonadIdAllocator (AllocT m) where
 
   alloc (AllocT_Allocator a)      = AllocT $ M.alloc a
   free (AllocT_Allocator a)       = AllocT . M.free a
+  statistics (AllocT_Allocator a) = AllocT $ M.statistics a
   allocRange (AllocT_Allocator a) = AllocT . M.allocRange a
   freeRange (AllocT_Allocator a)  = AllocT . M.freeRange a
 
