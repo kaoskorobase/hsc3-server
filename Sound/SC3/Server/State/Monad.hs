@@ -129,7 +129,7 @@ instance MonadIdAllocator Server where
 
   alloc (Allocator a)      = withAllocator  a   A.alloc
   free (Allocator a)       = withAllocator_ a . A.free
-  statistics (Allocator a) = liftM A.statistics $ Server (R.asks a >>= liftIO . readMVar)
+  statistics (Allocator a) = liftM A.statistics $ Server (R.asks a >>= liftIO . Conc.readMVar)
 
   allocRange (Allocator a) = withAllocator  a . A.allocRange
   freeRange (Allocator a)  = withAllocator_ a . A.freeRange
