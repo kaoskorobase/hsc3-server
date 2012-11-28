@@ -19,6 +19,7 @@ module Sound.SC3.Server.State.Monad.Request (
 ) where
 
 import           Control.Applicative (Applicative)
+import           Control.Monad (when)
 import           Control.Monad.IO.Class (MonadIO(..))
 import qualified Control.Monad.Trans.Class as Trans
 import qualified Control.Monad.Trans.State as State
@@ -189,14 +190,11 @@ mkSync = do
 
 -- | Add a synchronisation barrier to a request if needed.
 finish :: MonadIdAllocator m => Request m a -> Request m a
-finish r = do
+finish m = do
+  a <- m
   b <- gets needsSync
-  if b
-    then do
-      a <- r
-      mkSync >>= M.send
-      return a
-    else r
+  when b $ mkSync >>= M.send
+  return a
 
 -- | Run a request, returning the action's result, an OSC packet,
 --   a list of notifications to synchronise on and a cleanup action.
