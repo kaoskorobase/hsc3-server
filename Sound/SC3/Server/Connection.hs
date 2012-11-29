@@ -5,20 +5,21 @@
 -- | A 'Connection' encapsulates the communication with the synthesis server.
 -- This module provides functions for opening and closing connections, as well
 -- as communication and synchronisation primitives.
-module Sound.SC3.Server.Connection
-  ( Connection
-    -- * Creation and termination
-  , open
-  , close
-    -- * Sending packets
-  , send
-    -- * Receiving packets
-  , Listener
-  , ListenerId
-  , notificationListener
-  , addListener
-  , removeListener
-  ) where
+module Sound.SC3.Server.Connection (
+  Connection
+  -- * Creation and termination
+, open
+, close
+  -- * Sending packets
+, send
+  -- * Receiving packets
+, Listener
+, ListenerId
+, notificationListener
+, addListener
+, removeListener
+, withListener
+) where
 
 import           Control.Concurrent (forkIO)
 import           Control.Concurrent.MVar
@@ -81,3 +82,11 @@ addListener c l = modifyMVar (listeners c) $ \lm -> do
 -- | Remove a listener from the listener map.
 removeListener :: Connection -> ListenerId -> IO ()
 removeListener c uid = modifyMVar_ (listeners c) (ListenerMap.delete uid)
+
+-- | Perform an IO action with a registered listener that is automatically removed.
+withListener :: Connection -> Listener -> IO a -> IO a
+withListener c l =
+  E.bracket
+    (addListener c l)
+    (removeListener c)
+    . const
