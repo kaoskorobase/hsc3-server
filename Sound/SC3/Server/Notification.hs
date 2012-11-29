@@ -2,6 +2,8 @@
 module Sound.SC3.Server.Notification (
     Notification(..)
   , hasAddress
+  , waitFor
+  , waitForAll
   , Status(..)
   , status_reply
   , tr
@@ -16,9 +18,11 @@ module Sound.SC3.Server.Notification (
   , b_info
 ) where
 
-import Control.Applicative (pure, (<*>))
-import Sound.SC3.Server.State (BufferId, NodeId, SyncId)
-import Sound.OpenSoundControl (Datum(..), Message(..))
+import           Control.Applicative (pure, (<*>))
+import qualified Data.List.Zipper as Zipper
+import           Sound.SC3.Server.State (BufferId, NodeId, SyncId)
+import           Sound.OpenSoundControl (Datum(..), Message(..))
+import           Sound.OSC.Transport.Monad (RecvOSC(..), SendOSC(..), recvMessage)
 
 -- | A notification transformer, extracting a value from a matching OSC message.
 newtype Notification a = Notification { match :: Message -> Maybe a }
@@ -34,6 +38,43 @@ hasAddress a = Notification f
     where
         f p@(Message a' _) | a == a' = Just p
         f _ = Nothing
+
+-- | Send an OSC packet and wait for a notification.
+--
+-- Returns the transformed value.
+waitFor :: (RecvOSC m, SendOSC m) => Notification a -> m a
+waitFor n = go
+  where
+    go = do
+      msg <- recvMessage
+      case match n =<< msg of
+        Nothing -> go
+        Just a -> return a
+
+-- | Send an OSC packet and wait for a list of notifications.
+--
+-- Returns the transformed values, in unspecified order.
+waitForAll :: (RecvOSC m, SendOSC m) => [Notification a] -> m [a]
+waitForAll = go []
+  where
+    go as [] = return as
+    go as ns = do
+      msg <- recvMessage
+      case msg of
+        Nothing -> go as ns
+        Just msg ->
+          case findMatch msg ns of
+            Nothing -> go as ns
+            Just (a, ns') -> go (a:as) ns'
+    findMatch msg = go . Zipper.fromList
+      where
+        go z
+          | Zipper.endp z = Nothing
+          | otherwise =
+              let n = Zipper.cursor z
+              in case match n msg of
+                  Nothing -> go (Zipper.right z)
+                  Just a -> Just (a, Zipper.toList (Zipper.delete z))
 
 data Status = Status {
     numUGens          :: Int

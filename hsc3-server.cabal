@@ -54,6 +54,7 @@ Library
       , hsc3 >= 0.13
       , hsc3-process == 0.8.*
       , lifted-base >= 0.1
+      , ListZipper
       , monad-control >= 0.3
       , resourcet >= 0.3
       , transformers >= 0.2
