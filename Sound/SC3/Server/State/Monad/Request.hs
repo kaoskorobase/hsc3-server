@@ -24,10 +24,11 @@ import           Control.Monad.IO.Class (MonadIO(..))
 import qualified Control.Monad.Trans.Class as Trans
 import qualified Control.Monad.Trans.State as State
 import           Data.IORef (newIORef, readIORef, writeIORef)
+import           Sound.OSC.Transport.Monad (SendOSC(..))
 import qualified Sound.SC3.Server.Command as C
 import           Sound.SC3.Server.Notification (Notification)
 import qualified Sound.SC3.Server.Notification as N
-import           Sound.SC3.Server.State.Monad.Class (MonadIdAllocator(..), MonadRecvOSC, MonadSendOSC, MonadServer)
+import           Sound.SC3.Server.State.Monad.Class (MonadIdAllocator(..), RequestOSC, MonadServer)
 import qualified Sound.SC3.Server.State.Monad.Class as M
 import           Sound.OpenSoundControl (Bundle(..), Message(..), OSC(..), Time, immediately, packetMessages)
 
@@ -101,11 +102,11 @@ instance MonadIdAllocator m => MonadIdAllocator (Request m) where
 
 -- | Bundles are flattened into the resulting bundle because @scsynth@ doesn't
 -- support nested bundles.
-instance Monad m => MonadSendOSC (Request m) where
-  send osc = modify $ \s ->
-              s { requests = build
-                              (requests s)
-                              (packetMessages (toPacket osc)) }
+instance Monad m => SendOSC (Request m) where
+  sendOSC osc = modify $ \s ->
+                 s { requests = build
+                                (requests s)
+                                (packetMessages (toPacket osc)) }
     where build bs [] = bs
           build bs (a:as) = build (BuildSync a bs) as
 
@@ -193,12 +194,12 @@ finish :: MonadIdAllocator m => Request m a -> Request m a
 finish m = do
   a <- m
   b <- gets needsSync
-  when b $ mkSync >>= M.send
+  when b $ mkSync >>= sendOSC
   return a
 
 -- | Run a request, returning the action's result, an OSC packet,
 --   a list of notifications to synchronise on and a cleanup action.
-runRequest :: (MonadIdAllocator m, MonadRecvOSC m) => Time -> Request m a -> m (a, Maybe (Bundle, [Notification (m ())]), m ())
+runRequest :: (MonadIdAllocator m, RequestOSC m) => Time -> Request m a -> m (a, Maybe (Bundle, [Notification (m ())]), m ())
 runRequest t r = do
   let Request m = finish r
   (a, s) <- State.runStateT m emptyState
@@ -210,7 +211,7 @@ runRequest t r = do
 -- | Execute a request.
 --
 -- The commands after the last asynchronous command will be scheduled at the given time.
-exec :: (MonadIdAllocator m, MonadRecvOSC m) => Time -> Request m a -> m a
+exec :: (MonadIdAllocator m, RequestOSC m) => Time -> Request m a -> m a
 exec t r = do
   let Request m = finish r
   (a, s) <- State.runStateT m emptyState
@@ -218,10 +219,10 @@ exec t r = do
     BuildDone -> return ()
     rs -> let osc = compile t rs
               ns = notifications s
-          in M.waitForAll osc ns >>= sequence_
+          in M.requestAll osc ns >>= sequence_
   cleanup s
   return a
 
 -- | Execute a request immediately.
-exec_ :: (MonadIdAllocator m, MonadRecvOSC m) => Request m a -> m a
+exec_ :: (MonadIdAllocator m, RequestOSC m) => Request m a -> m a
 exec_ = exec immediately

@@ -4,22 +4,22 @@ module Sound.SC3.Server.State.Monad.Class (
   MonadServer(..)
 , serverOption
 , MonadIdAllocator(..)
-, MonadSendOSC(..)
-, MonadRecvOSC(..)
+, RequestOSC(..)
 ) where
 
-import           Control.Monad (liftM)
-import           Sound.OpenSoundControl (OSC)
-import           Sound.SC3.Server.Allocator (Id, IdAllocator, RangeAllocator, Statistics)
-import           Sound.SC3.Server.Allocator.Range (Range)
-import           Sound.SC3.Server.Notification (Notification)
-import           Sound.SC3.Server.State ( AudioBusIdAllocator
-                                        , ControlBusIdAllocator
-                                        , BufferIdAllocator
-                                        , NodeId
-                                        , NodeIdAllocator
-                                        , SyncIdAllocator )
-import           Sound.SC3.Server.Process (ServerOptions)
+import Control.Monad (liftM)
+import Sound.OpenSoundControl (OSC)
+import Sound.OSC.Transport.Monad (SendOSC)
+import Sound.SC3.Server.Allocator (Id, IdAllocator, RangeAllocator, Statistics)
+import Sound.SC3.Server.Allocator.Range (Range)
+import Sound.SC3.Server.Notification (Notification)
+import Sound.SC3.Server.State ( AudioBusIdAllocator
+                              , ControlBusIdAllocator
+                              , BufferIdAllocator
+                              , NodeId
+                              , NodeIdAllocator
+                              , SyncIdAllocator )
+import Sound.SC3.Server.Process (ServerOptions)
 
 class Monad m => MonadServer m where
   -- | Return the server options.
@@ -58,17 +58,8 @@ class Monad m => MonadIdAllocator m where
   -- | Free a contiguous range of ids using the given allocator.
   freeRange :: RangeAllocator a => Allocator m a -> Range (Id a) -> m ()
 
-class Monad m => MonadSendOSC m where
-  send :: OSC o => o -> m ()
-
-class MonadSendOSC m => MonadRecvOSC m where
+class SendOSC m => RequestOSC m where
   -- | Wait for a notification and return the result.
-  waitFor :: OSC o => o -> Notification a -> m a
-  -- | Wait for a notification and ignore the result.
-  waitFor_ :: OSC o => o -> Notification a -> m ()
-  waitFor_ osc n = waitFor osc n >> return ()
+  request :: OSC o => o -> Notification a -> m a
   -- | Wait for a set of notifications and return their results in unspecified order.
-  waitForAll :: OSC o => o -> [Notification a] -> m [a]
-  -- | Wait for a set of notifications and ignore their results.
-  waitForAll_ :: OSC o => o -> [Notification a] -> m ()
-  waitForAll_ osc ns = waitForAll osc ns >> return ()
+  requestAll :: OSC o => o -> [Notification a] -> m [a]

@@ -23,8 +23,8 @@ module Sound.SC3.Server.State.Monad (
 , NodeIdAllocator
 , MonadIdAllocator(..)
 -- * Communication and synchronization
-, MonadSendOSC(..)
-, MonadRecvOSC(..)
+, SendOSC(..)
+, RequestOSC(..)
 , SyncId
 , SyncIdAllocator
 , sync
@@ -37,19 +37,20 @@ import           Control.Applicative (Applicative)
 import           Control.Concurrent (ThreadId)
 import           Control.Concurrent.Lifted (MVar)
 import qualified Control.Concurrent.Lifted as Conc
-import           Control.Monad (ap, liftM, replicateM)
+import           Control.Monad (ap, liftM, void)
 import           Control.Monad.Base (MonadBase(..))
 import           Control.Monad.Fix (MonadFix)
 import           Control.Monad.IO.Class (MonadIO, liftIO)
 import           Control.Monad.Trans.Control (MonadBaseControl(..))
 import           Control.Monad.Trans.Reader (ReaderT(..))
 import qualified Control.Monad.Trans.Reader as R
-import           Sound.OpenSoundControl (Bundle(..), Datum(Int), Message(..), OSC, Packet(..), immediately)
+import           Sound.OpenSoundControl (Bundle(..), Datum(Int), Message(..), Packet(..), immediately)
+import           Sound.OSC.Transport.Monad (DuplexOSC, RecvOSC(..), SendOSC(..), Transport)
 import qualified Sound.SC3.Server.Allocator as A
 import           Sound.SC3.Server.Command (notify)
 import           Sound.SC3.Server.Connection (Connection)
 import qualified Sound.SC3.Server.Connection as C
-import           Sound.SC3.Server.Notification (Notification, synced)
+import qualified Sound.SC3.Server.Notification as N
 import           Sound.SC3.Server.Process.Options (ServerOptions)
 import           Sound.SC3.Server.State ( AudioBusId, AudioBusIdAllocator
                                         , BufferId, BufferIdAllocator
@@ -142,44 +143,31 @@ instance MonadIdAllocator Server where
 withConnection :: (Connection -> IO a) -> Server a
 withConnection f = Server $ R.asks _connection >>= \c -> liftIO (f c)
 
-sendC :: OSC o => Connection -> o -> IO ()
-sendC c osc = do
-  -- TODO: Make this configurable
-  --print osc
-  C.send c osc
+instance SendOSC Server where
+  sendOSC osc = withConnection (flip C.send osc)
 
-instance MonadSendOSC Server where
-  send osc = withConnection $ \c -> sendC c osc
+newtype AsTransport a = AsTransport (ReaderT (Connection, Conc.Chan Packet) IO a)
+  deriving (Functor, Monad, MonadIO)
 
--- | Send an OSC packet and wait for a notification.
---
--- Returns the transformed value.
-_waitFor :: OSC o => Connection -> o -> Notification a -> IO a
-_waitFor c osc n = do
-  res <- Conc.newEmptyMVar
-  uid <- C.addListener c (C.notificationListener (Conc.putMVar res) n)
-  sendC c osc
-  a <- Conc.takeMVar res
-  C.removeListener c uid
-  return a
+instance SendOSC AsTransport where
+  sendOSC osc = AsTransport $ R.asks fst >>= liftIO . flip C.send osc
 
--- | Send an OSC packet and wait for a list of notifications.
---
--- Returns the transformed values, in unspecified order.
-_waitForAll :: OSC o => Connection -> o -> [Notification a] -> IO [a]
-_waitForAll c osc [] =
-  sendC c osc >> return []
-_waitForAll c osc ns = do
-  res <- Conc.newChan
-  uids <- mapM (C.addListener c . C.notificationListener (Conc.writeChan res)) ns
-  sendC c osc
-  as <- replicateM (length ns) (Conc.readChan res)
-  mapM_ (C.removeListener c) uids
-  return as
+instance RecvOSC AsTransport where
+  recvPacket = AsTransport $ R.asks snd >>= liftIO . Conc.readChan
 
-instance MonadRecvOSC Server where
-  waitFor osc n     = withConnection $ \c -> _waitFor c osc n
-  waitForAll osc ns = withConnection $ \c -> _waitForAll c osc ns
+instance DuplexOSC AsTransport
+instance Transport AsTransport
+
+asTransport :: AsTransport a -> Server a
+asTransport (AsTransport a) =
+  withConnection $ \conn -> do
+    recvVar <- Conc.newChan
+    C.withListener conn (liftIO . Conc.writeChan recvVar) $
+      R.runReaderT a (conn, recvVar)
+
+instance RequestOSC Server where
+  request osc n     = asTransport (sendOSC osc >> N.waitFor n)
+  requestAll osc ns = asTransport (sendOSC osc >> N.waitForAll ns)
 
 -- | Append a @\/sync@ message to an OSC packet.
 appendSync :: Packet -> SyncId -> Packet
@@ -193,7 +181,7 @@ appendSync p i =
 sync :: Packet -> Server ()
 sync osc = do
   i <- alloc syncIdAllocator
-  waitFor_ (osc `appendSync` i) (synced i)
+  void $ request (osc `appendSync` i) (N.synced i)
   free syncIdAllocator i
 
 -- NOTE: This is only guaranteed to work with a transport that preserves

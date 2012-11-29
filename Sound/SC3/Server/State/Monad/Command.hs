@@ -134,8 +134,9 @@ import           Sound.SC3.Server.Enum (SoundFileFormat(..), SampleFormat(..))
 import qualified Sound.SC3.Server.Notification as N
 import           Sound.SC3.Server.Process.Options (ServerOptions(..))
 import           Sound.SC3.Server.State (AudioBusId, BufferId, ControlBusId, NodeId)
+import           Sound.SC3.Server.State.Monad (sendOSC)
 import qualified Sound.SC3.Server.State.Monad as M
-import           Sound.SC3.Server.State.Monad.Class (MonadIdAllocator, MonadRecvOSC, MonadServer, send, serverOption)
+import           Sound.SC3.Server.State.Monad.Class (MonadIdAllocator, MonadServer, RequestOSC, serverOption)
 import           Sound.SC3.Server.State.Monad.Request (Request, Result, after_, finally, mkAsync, mkAsync_, mkSync, waitFor)
 import qualified Sound.SC3.Server.State.Monad.Request as R
 import           Sound.SC3.UGen.Enum (B_Gen)
@@ -148,13 +149,13 @@ mkC :: OSC o => a -> (o -> a) -> (Maybe o -> a)
 mkC f _ Nothing    = f
 mkC _ f (Just osc) = f osc
 
-get :: (MonadIdAllocator m, MonadRecvOSC m, MonadIO m) => Request m (Result a) -> m a
+get :: (MonadIdAllocator m, RequestOSC m, MonadIO m) => Request m (Result a) -> m a
 get m = R.exec_ m >>= R.extract
 
 withSync :: MonadIdAllocator m => OSC o => o -> Request m ()
 withSync c = do
-  send c
-  send =<< mkSync
+  sendOSC c
+  sendOSC =<< mkSync
 
 -- ====================================================================
 -- Master controls
@@ -162,11 +163,11 @@ withSync c = do
 -- | Request server status.
 status :: MonadIO m => Request m (Result N.Status)
 status = do
-  send C.status
+  sendOSC C.status
   waitFor N.status_reply
 
 -- | Request server status.
-statusM :: (MonadIdAllocator m, MonadRecvOSC m, MonadIO m) => m N.Status
+statusM :: (MonadIdAllocator m, RequestOSC m, MonadIO m) => m N.Status
 statusM = get status
 
 -- | Select printing of incoming Open Sound Control messages.
@@ -175,11 +176,11 @@ dumpOSC p = withSync (C.dumpOSC p)
 
 -- | Remove all bundles from the scheduling queue.
 clearSched :: Monad m => Request m ()
-clearSched = send C.clearSched
+clearSched = sendOSC C.clearSched
 
 -- | Set error posting scope and mode.
 errorMode :: Monad m => ErrorScope -> ErrorMode -> Request m ()
-errorMode scope = send . C.errorMode scope
+errorMode scope = sendOSC . C.errorMode scope
 
 -- ====================================================================
 -- Synth definitions
@@ -227,7 +228,7 @@ d_loadDir fp = mkAsync_ $ \osc -> mkC C.d_loadDir C.d_loadDir' osc $ fp
 
 -- | Remove definition once all nodes using it have ended.
 d_free :: Monad m => SynthDef -> Request m ()
-d_free = send . C.d_free . (:[]) . name
+d_free = sendOSC . C.d_free . (:[]) . name
 
 -- ====================================================================
 -- Node
@@ -252,20 +253,20 @@ node = AbstractNode
 
 -- | Place node @a@ after node @b@.
 n_after :: (Node a, Node b, Monad m) => a -> b -> Request m ()
-n_after a b = send $ C.n_after [(fromIntegral (nodeId a), fromIntegral (nodeId b))]
+n_after a b = sendOSC $ C.n_after [(fromIntegral (nodeId a), fromIntegral (nodeId b))]
 
 -- | Place node @a@ before node @b@.
 n_before :: (Node a, Node b, Monad m) => a -> b -> Request m ()
-n_before a b = send $ C.n_after [(fromIntegral (nodeId a), fromIntegral (nodeId b))]
+n_before a b = sendOSC $ C.n_after [(fromIntegral (nodeId a), fromIntegral (nodeId b))]
 
 -- | Fill ranges of a node's control values.
 n_fill :: (Node a, Monad m) => a -> [(String, Int, Double)] -> Request m ()
-n_fill n = send . C.n_fill (fromIntegral (nodeId n))
+n_fill n = sendOSC . C.n_fill (fromIntegral (nodeId n))
 
 -- | Delete a node.
 n_free :: (Node a, MonadIdAllocator m) => a -> Request m ()
 n_free n = do
-    send $ C.n_free [fromIntegral (nodeId n)]
+    sendOSC $ C.n_free [fromIntegral (nodeId n)]
     finally $ M.free M.nodeIdAllocator (nodeId n)
 
 -- | Mapping node controls to buses.
@@ -276,14 +277,14 @@ class BusMapping n b where
     n_unmap :: (Node n, Bus b, Monad m) => n -> String -> b -> Request m ()
 
 instance BusMapping n ControlBus where
-    n_map n c b = send msg
+    n_map n c b = sendOSC msg
         where
             nid = fromIntegral (nodeId n)
             bid = fromIntegral (controlBusId b)
             msg = if numChannels b > 1
                   then C.n_mapn nid [(c, bid, numChannels b)]
                   else C.n_map  nid [(c, bid)]
-    n_unmap n c b = send msg
+    n_unmap n c b = sendOSC msg
         where
             nid = fromIntegral (nodeId n)
             msg = if numChannels b > 1
@@ -291,14 +292,14 @@ instance BusMapping n ControlBus where
                   else C.n_map  nid [(c, -1)]
 
 instance BusMapping n AudioBus where
-    n_map n c b = send msg
+    n_map n c b = sendOSC msg
         where
             nid = fromIntegral (nodeId n)
             bid = fromIntegral (audioBusId b)
             msg = if numChannels b > 1
                   then C.n_mapan nid [(c, bid, numChannels b)]
                   else C.n_mapa  nid [(c, bid)]
-    n_unmap n c b = send msg
+    n_unmap n c b = sendOSC msg
         where
             nid = fromIntegral (nodeId n)
             msg = if numChannels b > 1
@@ -307,7 +308,7 @@ instance BusMapping n AudioBus where
 
 -- | Query a node.
 n_query_ :: (Node a, Monad m) => a -> Request m ()
-n_query_ n = send (C.n_query [fromIntegral (nodeId n)])
+n_query_ n = sendOSC (C.n_query [fromIntegral (nodeId n)])
 
 -- | Query a node.
 n_query :: (Node a, MonadIO m) => a -> Request m (Result N.NodeNotification)
@@ -316,28 +317,28 @@ n_query n = do
   waitFor (N.n_info (nodeId n))
 
 -- | Query a node.
-n_queryM :: (Node a, MonadIdAllocator m, MonadRecvOSC m, MonadIO m) => a -> m N.NodeNotification
+n_queryM :: (Node a, MonadIdAllocator m, RequestOSC m, MonadIO m) => a -> m N.NodeNotification
 n_queryM = get . n_query
 
 -- | Turn node on or off.
 n_run_ :: (Node a, Monad m) => a -> Bool -> Request m ()
-n_run_ n b = send $ C.n_run [(fromIntegral (nodeId n), b)]
+n_run_ n b = sendOSC $ C.n_run [(fromIntegral (nodeId n), b)]
 
 -- | Set a node's control values.
 n_set :: (Node a, Monad m) => a -> [(String, Double)] -> Request m ()
-n_set n = send . C.n_set (fromIntegral (nodeId n))
+n_set n = sendOSC . C.n_set (fromIntegral (nodeId n))
 
 -- | Set ranges of a node's control values.
 n_setn :: (Node a, Monad m) => a -> [(String, [Double])] -> Request m ()
-n_setn n = send . C.n_setn (fromIntegral (nodeId n))
+n_setn n = sendOSC . C.n_setn (fromIntegral (nodeId n))
 
 -- | Trace a node.
 n_trace :: (Node a, Monad m) => a -> Request m ()
-n_trace n = send $ C.n_trace [fromIntegral (nodeId n)]
+n_trace n = sendOSC $ C.n_trace [fromIntegral (nodeId n)]
 
 -- | Move an ordered sequence of nodes.
 n_order :: (Node n, Monad m) => AddAction -> n -> [AbstractNode] -> Request m ()
-n_order a n = send . C.n_order a (fromIntegral (nodeId n)) . map (fromIntegral.nodeId)
+n_order a n = sendOSC . C.n_order a (fromIntegral (nodeId n)) . map (fromIntegral.nodeId)
 
 -- ====================================================================
 -- Synth
@@ -351,7 +352,7 @@ instance Node Synth where
 s_new :: MonadIdAllocator m => SynthDef -> AddAction -> Group -> [(String, Double)] -> Request m Synth
 s_new d a g xs = do
     nid <- M.alloc M.nodeIdAllocator
-    send $ C.s_new (name d) (fromIntegral nid) a (fromIntegral (nodeId g)) xs
+    sendOSC $ C.s_new (name d) (fromIntegral nid) a (fromIntegral (nodeId g)) xs
     return $ Synth nid
 
 -- | Create a new synth in the root group.
@@ -361,28 +362,28 @@ s_new_ d a xs = rootNode >>= \g -> s_new d a g xs
 -- | Release a synth with a "gate" envelope control.
 s_release :: MonadIdAllocator m => Double -> Synth -> Request m ()
 s_release r s = do
-  send (C.n_set1 (fromIntegral nid) "gate" r)
+  sendOSC (C.n_set1 (fromIntegral nid) "gate" r)
   after_ (N.n_end_ nid) (M.free M.nodeIdAllocator nid)
   where nid = nodeId s
 
 -- | Get control values.
 s_get :: MonadIO m => Synth -> [String] -> Request m (Result [(Either Int String, Double)])
 s_get s cs = do
-  send (C.s_get (fromIntegral nid) cs)
+  sendOSC (C.s_get (fromIntegral nid) cs)
   waitFor (N.n_set nid)
   where nid = nodeId s
 
 -- | Get ranges of control values.
 s_getn :: MonadIO m => Synth -> [(String, Int)] -> Request m (Result [(Either Int String, [Double])])
 s_getn s cs = do
-  send (C.s_getn (fromIntegral nid) cs)
+  sendOSC (C.s_getn (fromIntegral nid) cs)
   waitFor (N.n_setn nid)
   where nid = nodeId s
 
 -- | Free a synth's ID and auto-reassign it to a reserved value (the node is not freed!).
 s_noid :: MonadIdAllocator m => Synth -> Request m ()
 s_noid s = do
-  send (C.s_noid [fromIntegral nid])
+  sendOSC (C.s_noid [fromIntegral nid])
   M.free M.nodeIdAllocator nid
   where nid = nodeId s
 
@@ -402,7 +403,7 @@ rootNode = liftM Group M.rootNodeId
 g_new :: MonadIdAllocator m => AddAction -> Group -> Request m Group
 g_new a p = do
     nid <- M.alloc M.nodeIdAllocator
-    send $ C.g_new [(fromIntegral nid, a, fromIntegral (nodeId p))]
+    sendOSC $ C.g_new [(fromIntegral nid, a, fromIntegral (nodeId p))]
     return $ Group nid
 
 -- | Create a new group in the top level group.
@@ -411,37 +412,37 @@ g_new_ a = rootNode >>= g_new a
 
 -- | Free all synths in this group and all its sub-groups.
 g_deepFree :: Monad m => Group -> Request m ()
-g_deepFree g = send $ C.g_deepFree [fromIntegral (nodeId g)]
+g_deepFree g = sendOSC $ C.g_deepFree [fromIntegral (nodeId g)]
 
 -- | Delete all nodes in a group.
 g_freeAll :: Monad m => Group -> Request m ()
-g_freeAll g = send $ C.g_freeAll [fromIntegral (nodeId g)]
+g_freeAll g = sendOSC $ C.g_freeAll [fromIntegral (nodeId g)]
 
 -- | Add node to head of group.
 g_head :: (Node n, Monad m) => Group -> n -> Request m ()
-g_head g n = send $ C.g_head [(fromIntegral (nodeId g), fromIntegral (nodeId n))]
+g_head g n = sendOSC $ C.g_head [(fromIntegral (nodeId g), fromIntegral (nodeId n))]
 
 -- | Add node to tail of group.
 g_tail :: (Node n, Monad m) => Group -> n -> Request m ()
-g_tail g n = send $ C.g_tail [(fromIntegral (nodeId g), fromIntegral (nodeId n))]
+g_tail g n = sendOSC $ C.g_tail [(fromIntegral (nodeId g), fromIntegral (nodeId n))]
 
 -- | Post a representation of a group's node subtree, optionally including the current control values for synths.
 g_dumpTree :: Monad m => [(Group, Bool)] -> Request m ()
-g_dumpTree = send . C.g_dumpTree . map (first (fromIntegral . nodeId))
+g_dumpTree = sendOSC . C.g_dumpTree . map (first (fromIntegral . nodeId))
 
 -- ====================================================================
 -- Plugin Commands
 
 -- | Send a plugin command.
 cmd :: Monad m => String -> [Datum] -> Request m ()
-cmd s = send . C.cmd s
+cmd s = sendOSC . C.cmd s
 
 -- ====================================================================
 -- Unit Generator Commands
 
 -- | Send a command to a unit generator.
 u_cmd :: Monad m => AbstractNode -> Int -> String -> [Datum] -> Request m ()
-u_cmd n i s = send . C.u_cmd (fromIntegral (nodeId n)) i s
+u_cmd n i s = sendOSC . C.u_cmd (fromIntegral (nodeId n)) i s
 
 -- ====================================================================
 -- Buffer Commands
@@ -551,15 +552,15 @@ b_zero buffer = mkAsync_ $ \osc ->
 
 -- | Set sample values.
 b_set :: Monad m => Buffer -> [(Int, Double)] -> Request m ()
-b_set buffer = send . C.b_set (fromIntegral (bufferId buffer))
+b_set buffer = sendOSC . C.b_set (fromIntegral (bufferId buffer))
 
 -- | Set ranges of sample values.
 b_setn :: Monad m => Buffer -> [(Int, [Double])] -> Request m ()
-b_setn buffer = send . C.b_setn (fromIntegral (bufferId buffer))
+b_setn buffer = sendOSC . C.b_setn (fromIntegral (bufferId buffer))
 
 -- | Fill ranges of sample values.
 b_fill :: Monad m => Buffer -> [(Int, Int, Double)] -> Request m ()
-b_fill buffer = send . C.b_fill (fromIntegral (bufferId buffer))
+b_fill buffer = sendOSC . C.b_fill (fromIntegral (bufferId buffer))
 
 -- | Call a command to fill a buffer. (Asynchronous)
 b_gen :: MonadIdAllocator m => Buffer -> String -> [Datum] -> Request m ()
@@ -606,11 +607,11 @@ b_close buffer = mkAsync_ $ \osc -> mkC C.b_close C.b_close' osc $ fromIntegral 
 -- | Request 'BufferInfo'.
 b_query :: MonadIO m => Buffer -> Request m (Result N.BufferInfo)
 b_query (Buffer bid) = do
-    send (C.b_query [fromIntegral bid])
+    sendOSC (C.b_query [fromIntegral bid])
     waitFor (N.b_info bid)
 
 -- | Request 'BufferInfo'.
-b_queryM :: (MonadIdAllocator m, MonadRecvOSC m, MonadIO m) => Buffer -> m N.BufferInfo
+b_queryM :: (MonadIdAllocator m, RequestOSC m, MonadIO m) => Buffer -> m N.BufferInfo
 b_queryM = get . b_query
 
 -- ====================================================================
