@@ -35,8 +35,8 @@ module Sound.SC3.Server.State.Monad (
 
 import           Control.Applicative (Applicative)
 import           Control.Concurrent (ThreadId)
+import           Control.Concurrent.Lifted (MVar)
 import qualified Control.Concurrent.Lifted as Conc
-import           Control.Concurrent.MVar (MVar, newMVar, modifyMVar)
 import           Control.Monad (ap, liftM, replicateM)
 import           Control.Monad.Base (MonadBase(..))
 import           Control.Monad.Fix (MonadFix)
@@ -99,7 +99,7 @@ runServer (Server r) so c =
   where
     as = State.mkAllocators so
     new :: MonadIO m => (State.Allocators -> a) -> m (MVar a)
-    new f = liftIO $ newMVar (f as)
+    new f = liftIO $ Conc.newMVar (f as)
     -- Register with server to receive notifications.
     (Server init) = sync (Packet_Bundle (Bundle immediately [notify True]))
 
@@ -110,13 +110,18 @@ instance MonadServer Server where
 withAllocator :: (State -> MVar a) -> (a -> IO (b, a)) -> Server b
 withAllocator a f = Server $ do
   mv <- R.asks a
-  liftIO $ modifyMVar mv $ \s -> do
+  liftIO $ Conc.modifyMVar mv $ \s -> do
     (i, s') <- f s
     -- Evaluate allocator before putting it back into MVar.
     return $! s' `seq` (s', i)
 
 withAllocator_ :: (State -> MVar a) -> (a -> IO a) -> Server ()
-withAllocator_ a f = withAllocator a (liftM ((,)()) . f)
+withAllocator_ a f = Server $ do
+  mv <- R.asks a
+  liftIO $ Conc.modifyMVar_ mv $ \s -> do
+    s' <- f s
+    -- Evaluate allocator before putting it back into MVar.
+    return $! s'
 
 instance MonadIdAllocator Server where
   newtype Allocator Server a = Allocator (State -> MVar a)
