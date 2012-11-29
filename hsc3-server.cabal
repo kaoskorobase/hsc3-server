@@ -81,7 +81,9 @@ Executable hsc3-hello
       , hsc3-server >= 0.5
       , transformers >= 0.2
     Ghc-Options:
-        -rtsopts -threaded
+        -W -rtsopts -threaded
+    Ghc-Prof-Options:
+        -W -rtsopts -threaded -auto-all
 
 Executable hsc3-sine-grains
     Main-Is: sine-grains.hs
@@ -99,7 +101,9 @@ Executable hsc3-sine-grains
       , transformers >= 0.2
       , unix >= 2.5
     Ghc-Options:
-        -rtsopts -threaded
+        -W -rtsopts -threaded
+    Ghc-Prof-Options:
+        -W -rtsopts -threaded -auto-all
 
 Test-Suite hsc3-server-test
     Type: exitcode-stdio-1.0
@@ -119,6 +123,8 @@ Test-Suite hsc3-server-test
       , transformers >= 0.2
     Ghc-Options:
         -W -rtsopts -threaded
+    Ghc-Prof-Options:
+        -W -rtsopts -threaded -auto-all
 
 -- Test-Suite hsc3-server-doctests
 --     Type:          exitcode-stdio-1.0
