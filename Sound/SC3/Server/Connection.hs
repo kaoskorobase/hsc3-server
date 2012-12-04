@@ -16,8 +16,6 @@ module Sound.SC3.Server.Connection (
 , Listener
 , ListenerId
 , notificationListener
-, addListener
-, removeListener
 , withListener
 ) where
 
