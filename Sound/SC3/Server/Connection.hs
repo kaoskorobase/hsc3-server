@@ -15,7 +15,6 @@ module Sound.SC3.Server.Connection (
   -- * Receiving packets
 , Listener
 , ListenerId
-, notificationListener
 , withListener
 ) where
 
@@ -23,9 +22,8 @@ import           Control.Concurrent (forkIO)
 import           Control.Concurrent.MVar
 import qualified Control.Exception as E
 import           Control.Monad (void)
-import           Sound.OSC.FD (OSC(..), Packet, Transport, packet_to_message)
+import           Sound.OSC.FD (OSC(..), Packet, Transport)
 import qualified Sound.OSC.FD as OSC
-import           Sound.SC3.Server.Notification (Notification(..))
 import           Sound.SC3.Server.Connection.ListenerMap (Listener, ListenerId, ListenerMap)
 import qualified Sound.SC3.Server.Connection.ListenerMap as ListenerMap
 
@@ -66,10 +64,6 @@ send (Connection t _) = OSC.sendOSC t
 
 -- ====================================================================
 -- Listeners
-
--- | Create a listener from an IO action and a notification.
-notificationListener :: (a -> IO ()) -> Notification a -> Listener
-notificationListener f n osc = maybe (return ()) f (match n =<< packet_to_message osc)
 
 -- | Add a listener to the listener map.
 addListener :: Connection -> Listener -> IO ListenerId
