@@ -17,6 +17,7 @@ module Sound.SC3.Server.Connection (
 ) where
 
 import           Control.Concurrent (ThreadId, forkIO, myThreadId)
+import           Control.Monad (forever)
 import           Control.Concurrent.MVar
 import qualified Control.Exception as E
 import           Control.Monad (void)
@@ -32,17 +33,9 @@ data Connection  = forall t . Transport t => Connection t (MVar ListenerMap)
 listeners :: Connection -> MVar ListenerMap
 listeners (Connection _ l) = l
 
-try_recv :: Transport t => t -> IO (Either E.SomeException Packet)
-try_recv = E.try . OSC.recvPacket
-
 recvLoop :: Connection -> IO ()
-recvLoop c@(Connection t ls) = do
-  e <- try_recv t
-  case e of
-    Left _ -> return ()
-    Right osc -> do
-      withMVar ls $ H.mapM_ (\(_, l) -> l osc)
-      recvLoop c
+recvLoop (Connection t ls) = forever $
+  OSC.recvPacket t >>= \osc -> withMVar ls $ H.mapM_ (\(_, l) -> l osc)
 
 -- | Create a new connection given an OSC transport.
 open :: Transport t => t -> IO Connection
