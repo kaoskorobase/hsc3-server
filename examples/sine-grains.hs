@@ -7,17 +7,10 @@ import           Sound.SC3.Server.State.Monad.Command
 -- You need the hsc3-server-internal package in order to use the internal server
 --import           Sound.SC3.Server.Monad.Process.Internal (withDefaultInternal)
 import           Sound.SC3.Server.State.Monad.Process (withDefaultSynth)
+import           Sound.OpenSoundControl (pauseThread, pauseThreadUntil)
 import qualified Sound.OpenSoundControl as OSC
 import           System.Posix.Signals (installHandler, keyboardSignal, Handler(Catch))
 import           System.Random
-
--- | Pause thread for a number of seconds.
-pauseThread :: MonadIO m => Double -> m ()
-pauseThread = liftIO . OSC.pauseThread
-
--- | Pause thread until a certain time.
-pauseThreadUntil :: MonadIO m => Double -> m ()
-pauseThreadUntil = liftIO . OSC.pauseThreadUntil
 
 -- Simple sine grain synthdef with frequency and amplitude controls and an ASR envelope.
 sine :: UGen
@@ -48,14 +41,14 @@ grainLoop quit synthDef delta sustain t = do
   r <- rootNode
   -- Create a synth of the sine grain SynthDef with the random freqyency and amplitude from above
   -- Schedule the synth for execution in 'latency' seconds in order to avoid jitter
-  synth <- OSC.UTCr (t + latency) `exec` s_new synthDef AddToTail r [("freq", f), ("amp", a)]
+  synth <- (t + latency) `exec` s_new synthDef AddToTail r [("freq", f), ("amp", a)]
   -- Fork a thread for releasing the synth after 'sustain' seconds
   fork $ do
     -- Calculate the time at which to release the synth and pause
     let t' = t + sustain
     pauseThreadUntil t'
     -- Release the synth, taking latency into account
-    OSC.UTCr (t' + latency) `exec` s_release 0 synth
+    (t' + latency) `exec` s_release 0 synth
   -- Calculate the time for the next iteration and pause
   let t' = t + delta
   pauseThreadUntil t'
@@ -84,5 +77,5 @@ main = do
     -- Fork the status display loop
     fork statusLoop
     -- Enter the grain loop
-    grainLoop quit sd 0.03 0.06 =<< liftIO OSC.utcr
+    grainLoop quit sd 0.03 0.06 =<< liftIO OSC.time
   takeMVar quit
