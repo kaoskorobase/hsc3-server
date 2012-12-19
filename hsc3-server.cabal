@@ -39,9 +39,6 @@ Library
     Other-Modules:
         Sound.SC3.Server.Allocator.BlockAllocator.FreeList
         Sound.SC3.Server.Connection
-        Sound.SC3.Server.Connection.ListenerMap
-        Sound.SC3.Server.Connection.ListenerMap.HashTable
-        Sound.SC3.Server.Connection.ListenerMap.List
         Sound.SC3.Server.State.Monad.Request
         Sound.SC3.Server.State
     Build-Depends:
@@ -50,6 +47,7 @@ Library
       , containers >= 0.2
       , data-default >= 0.5
       , failure >= 0.2
+      , hashtables >= 1.0
       , hosc >= 0.13
       , hsc3 >= 0.13
       , hsc3-process == 0.8.*

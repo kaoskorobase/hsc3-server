@@ -13,19 +13,19 @@ module Sound.SC3.Server.Connection (
   -- * Sending packets
 , send
   -- * Receiving packets
-, Listener
-, ListenerId
 , withListener
 ) where
 
-import           Control.Concurrent (forkIO)
+import           Control.Concurrent (ThreadId, forkIO, myThreadId)
 import           Control.Concurrent.MVar
 import qualified Control.Exception as E
 import           Control.Monad (void)
+import qualified Data.HashTable.IO as H
 import           Sound.OSC.FD (OSC(..), Packet, Transport)
 import qualified Sound.OSC.FD as OSC
-import           Sound.SC3.Server.Connection.ListenerMap (Listener, ListenerId, ListenerMap)
-import qualified Sound.SC3.Server.Connection.ListenerMap as ListenerMap
+
+type Listener = Packet -> IO ()
+type ListenerMap = H.CuckooHashTable ThreadId Listener
 
 data Connection  = forall t . Transport t => Connection t (MVar ListenerMap)
 
@@ -41,13 +41,13 @@ recvLoop c@(Connection t ls) = do
   case e of
     Left _ -> return ()
     Right osc -> do
-      withMVar ls $ ListenerMap.broadcast osc
+      withMVar ls $ H.mapM_ (\(_, l) -> l osc)
       recvLoop c
 
 -- | Create a new connection given an OSC transport.
 open :: Transport t => t -> IO Connection
 open t = do
-  ls <- newMVar =<< ListenerMap.empty
+  ls <- newMVar =<< H.new
   let c = Connection t ls
   void $ forkIO $ recvLoop c
   return c
@@ -66,19 +66,23 @@ send (Connection t _) = OSC.sendOSC t
 -- Listeners
 
 -- | Add a listener to the listener map.
-addListener :: Connection -> Listener -> IO ListenerId
-addListener c l = modifyMVar (listeners c) $ \lm -> do
-  (uid, lm') <- ListenerMap.add l lm
-  return (lm', uid)
+addListener :: Connection -> Listener -> IO (ThreadId, Maybe Listener)
+addListener c l = do
+  uid <- myThreadId
+  withMVar (listeners c) $ \lm -> do
+    l' <- H.lookup lm uid
+    H.insert lm uid l
+    return (uid, l')
 
 -- | Remove a listener from the listener map.
-removeListener :: Connection -> ListenerId -> IO ()
-removeListener c uid = modifyMVar_ (listeners c) (ListenerMap.delete uid)
+removeListener :: Connection -> ThreadId -> Maybe Listener -> IO ()
+removeListener c uid Nothing = withMVar (listeners c) $ \ls -> H.delete ls uid
+removeListener c uid (Just l) = withMVar (listeners c) $ \ls -> H.insert ls uid l
 
 -- | Perform an IO action with a registered listener that is automatically removed.
-withListener :: Connection -> Listener -> IO a -> IO a
-withListener c l =
+withListener :: Connection -> (Packet -> IO ()) -> IO a -> IO a
+withListener c l = do
   E.bracket
     (addListener c l)
-    (removeListener c)
+    (uncurry (removeListener c))
     . const
