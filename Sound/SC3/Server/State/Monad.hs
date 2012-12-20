@@ -37,6 +37,7 @@ import           Control.Applicative (Applicative)
 import           Control.Concurrent (ThreadId)
 import           Control.Concurrent.Lifted (MVar)
 import qualified Control.Concurrent.Lifted as Conc
+import           Control.Failure (Failure)
 import           Control.Monad (ap, liftM, void)
 import           Control.Monad.Base (MonadBase(..))
 import           Control.Monad.Fix (MonadFix)
@@ -72,7 +73,7 @@ data State = State {
   }
 
 newtype Server a = Server { unServer :: ReaderT State IO a }
-    deriving (Applicative, Functor, Monad, MonadFix, MonadIO)
+    deriving (Applicative, Failure A.AllocFailure, Functor, Monad, MonadFix, MonadIO)
 
 instance MonadBase IO Server where
   {-# INLINE liftBase #-}
