@@ -22,8 +22,6 @@ statusLoop = do
 -- You need the hsc3-server-internal package in order to use the internal server
 --run = withDefaultInternal
 run = withDefaultSynth
-
-latency = 0.03
  
 main = run $ do
     --exec_ $ dumpOSC TextPrinter
