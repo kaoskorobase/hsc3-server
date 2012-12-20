@@ -18,12 +18,14 @@ import qualified Sound.SC3.Server.State.Monad as Server
 withTransport ::
     ServerOptions     -- ^ General server options
  -> RTOptions         -- ^ Realtime server options
+ -> Maybe String      -- ^ Host to connect to (defaults to localhost)
  -> Server a          -- ^ Action to execute
  -> IO a              -- ^ Action result
-withTransport serverOptions rtOptions action =
+withTransport serverOptions rtOptions host action =
   Process.withTransport
     serverOptions
     rtOptions
+    host
     $ \t -> Conn.open t >>= Server.runServer action serverOptions
 
 -- | Start an @scsynth@ instance and run the supplied 'Server' action.
