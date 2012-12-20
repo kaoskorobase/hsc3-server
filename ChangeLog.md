@@ -1,11 +1,12 @@
 ### v0.5.0
 
-* Rename `Sound.SC3.Server.Monad.Send` to `Sound.SC3.Server.Monad.Request` and refactor interface and semantics
 * Use distinct types for audio and control buses and IDs
 * Factor monad type classes into `Sound.SC3.Server.Monad.Class`
 * Remove `Sound.SC3.Server.Monad.capture` combinator
 * Upgrade to `hosc` 0.13 and `hsc3` 0.13
-* Rename `Sound.SC3.Server.Monad*` to `Sound.SC3.Server.State.Monad*`
+* Move `Sound.SC3.Server.Monad` hierarchy to `Sound.SC3.Server.State.Monad` to avoid a clash with `hsc3`
+* Rename `Sound.SC3.Server.Monad.Send` to `Sound.SC3.Server.State.Monad.Request` and refactor interface and semantics
+* Export `withTransport` from `Sound.SC3.Server.State.Monad.Process`
 
 ### v0.4.0
 
