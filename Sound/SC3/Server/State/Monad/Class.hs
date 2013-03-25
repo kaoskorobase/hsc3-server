@@ -8,7 +8,7 @@ module Sound.SC3.Server.State.Monad.Class (
 ) where
 
 import Control.Monad (liftM)
-import Sound.OpenSoundControl (OSC)
+import Sound.OSC (OSC)
 import Sound.OSC.Transport.Monad (SendOSC)
 import Sound.SC3.Server.Allocator (Id, IdAllocator, RangeAllocator, Statistics)
 import Sound.SC3.Server.Allocator.Range (Range)

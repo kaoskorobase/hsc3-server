@@ -121,7 +121,8 @@ import           Control.Arrow (first)
 import           Control.Failure (Failure, failure)
 import           Control.Monad (liftM, unless)
 import           Control.Monad.IO.Class (MonadIO)
-import           Sound.OpenSoundControl (Datum(..), OSC(..))
+import           Data.Int
+import           Sound.OSC (Datum(..), OSC(..))
 import           Sound.SC3 (Rate(..), UGen)
 import           Sound.SC3.Server.Allocator.Range (Range)
 import qualified Sound.SC3.Server.Allocator.Range as Range
@@ -367,14 +368,14 @@ s_release r s = do
   where nid = nodeId s
 
 -- | Get control values.
-s_get :: MonadIO m => Synth -> [String] -> Request m (Result [(Either Int String, Double)])
+s_get :: MonadIO m => Synth -> [String] -> Request m (Result [(Either Int32 String, Float)])
 s_get s cs = do
   sendOSC (C.s_get (fromIntegral nid) cs)
   waitFor (N.n_set nid)
   where nid = nodeId s
 
 -- | Get ranges of control values.
-s_getn :: MonadIO m => Synth -> [(String, Int)] -> Request m (Result [(Either Int String, [Double])])
+s_getn :: MonadIO m => Synth -> [(String, Int)] -> Request m (Result [(Either Int32 String, [Float])])
 s_getn s cs = do
   sendOSC (C.s_getn (fromIntegral nid) cs)
   waitFor (N.n_setn nid)

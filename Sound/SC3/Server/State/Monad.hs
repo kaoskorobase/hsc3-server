@@ -45,7 +45,7 @@ import           Control.Monad.IO.Class (MonadIO, liftIO)
 import           Control.Monad.Trans.Control (MonadBaseControl(..))
 import           Control.Monad.Trans.Reader (ReaderT(..))
 import qualified Control.Monad.Trans.Reader as R
-import           Sound.OpenSoundControl (Bundle(..), Datum(Int), Message(..), Packet(..), immediately)
+import           Sound.OSC (Bundle(..), Datum(Int32), Message(..), Packet(..), immediately)
 import           Sound.OSC.Transport.Monad (DuplexOSC, RecvOSC(..), SendOSC(..), Transport)
 import qualified Sound.SC3.Server.Allocator as A
 import           Sound.SC3.Server.Command (notify)
@@ -176,7 +176,7 @@ appendSync p i =
   case p of
     Packet_Message m -> Packet_Bundle (Bundle immediately [m, s])
     Packet_Bundle (Bundle t xs) -> Packet_Bundle (Bundle t (xs ++ [s]))
-  where s = Message "/sync" [Int (fromIntegral i)]
+  where s = Message "/sync" [Int32 (fromIntegral i)]
 
 -- | Send an OSC packet and wait for the synchronization barrier.
 sync :: Packet -> Server ()

@@ -30,7 +30,7 @@ import           Sound.SC3.Server.Notification (Notification)
 import qualified Sound.SC3.Server.Notification as N
 import           Sound.SC3.Server.State.Monad.Class (MonadIdAllocator(..), RequestOSC, MonadServer)
 import qualified Sound.SC3.Server.State.Monad.Class as M
-import           Sound.OpenSoundControl (Bundle(..), Message(..), OSC(..), Time, immediately, packetMessages)
+import           Sound.OSC (Bundle(..), Message(..), OSC(..), Time, immediately, packetMessages)
 
 data Builder =
     BuildDone
