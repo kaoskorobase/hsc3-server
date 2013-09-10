@@ -126,11 +126,13 @@ import           Sound.OSC (Datum(..), OSC(..))
 import           Sound.SC3 (Rate(..), UGen)
 import           Sound.SC3.Server.Allocator.Range (Range)
 import qualified Sound.SC3.Server.Allocator.Range as Range
-import qualified Sound.SC3.Server.Command.Completion as C
 import qualified Sound.SC3.Server.Synthdef as Synthdef
 import           Sound.SC3.Server.Allocator (AllocFailure(..))
-import           Sound.SC3.Server.Command (AddAction(..), ErrorScope(..), ErrorMode(..), PrintLevel(..))
-import qualified Sound.SC3.Server.Command as C
+import           Sound.SC3.Server.Enum (AddAction(..), ErrorScope(..), ErrorMode(..), PrintLevel(..))
+import qualified Sound.SC3.Server.Command.Core as C
+import qualified Sound.SC3.Server.Command.Completion as C
+import qualified Sound.SC3.Server.Command.Double as C
+import qualified Sound.SC3.Server.Command.Int as C
 import           Sound.SC3.Server.Enum (SoundFileFormat(..), SampleFormat(..))
 import qualified Sound.SC3.Server.Notification as N
 import           Sound.SC3.Server.Process.Options (ServerOptions(..))
