@@ -24,7 +24,7 @@ cons r = SetAllocator r Set.empty (Range.begin r)
 
 -- | Convert an id to a bit index.
 --
--- This is necessary to keep the BitSet size bounded between [0, numIds].
+-- This is necessary to keep the BitSet size bounded between [0, numIds[.
 toBit :: Integral i => Range i -> i -> i
 toBit r i = i - Range.begin r
 
