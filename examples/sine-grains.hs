@@ -7,8 +7,8 @@ import           Sound.SC3.Server.State.Monad.Command
 -- You need the hsc3-server-internal package in order to use the internal server
 --import           Sound.SC3.Server.Monad.Process.Internal (withDefaultInternal)
 import           Sound.SC3.Server.State.Monad.Process (withDefaultSynth)
-import           Sound.OpenSoundControl (pauseThread, pauseThreadUntil)
-import qualified Sound.OpenSoundControl as OSC
+import           Sound.OSC (pauseThread, pauseThreadUntil)
+import qualified Sound.OSC as OSC
 import           System.Posix.Signals (installHandler, keyboardSignal, Handler(Catch))
 import           System.Random
 
