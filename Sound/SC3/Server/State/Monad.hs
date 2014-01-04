@@ -29,6 +29,7 @@ module Sound.SC3.Server.State.Monad (
 , SyncIdAllocator
 , sync
 , unsafeSync
+, asTransport
 -- * Concurrency
 , fork
 ) where
