@@ -1,5 +1,5 @@
 Name:               hsc3-server
-Version:            0.7.0
+Version:            0.8.0
 Synopsis:           SuperCollider server resource management and synchronization.
 Description:
     This library provides abstractions for managing SuperCollider server
@@ -78,7 +78,7 @@ Executable hsc3-hello
         base >= 4.3 && < 5
       , hosc >= 0.14
       , hsc3 >= 0.14
-      , hsc3-server >= 0.7
+      , hsc3-server >= 0.8
       , transformers >= 0.2
     Ghc-Options:
         -W -rtsopts -threaded
@@ -96,7 +96,7 @@ Executable hsc3-sine-grains
         base >= 4.3 && < 5
       , hosc >= 0.14
       , hsc3 >= 0.14
-      , hsc3-server >= 0.7
+      , hsc3-server >= 0.8
       , random >= 1.0
       , transformers >= 0.2
       , unix >= 2.5
@@ -115,7 +115,7 @@ Test-Suite hsc3-server-test
     Build-Depends:
         base >= 4.3 && < 5
       , failure >= 0.2
-      , hsc3-server >= 0.7
+      , hsc3-server >= 0.8
       , QuickCheck >= 2.4
       , random
       , test-framework
