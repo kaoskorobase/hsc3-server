@@ -15,6 +15,7 @@ Copyright:          Copyright (c) Stefan Kersten 2008-2013
 Author:             Stefan Kersten
 Maintainer:         kaoskorobase@gmail.com
 Homepage:           https://github.com/kaoskorobase/hsc3-server
+Bug-Reports:        https://github.com/kaoskorobase/hsc3-server/issues
 Tested-With:        GHC == 7.4
 Build-Type:         Simple
 Cabal-Version:      >= 1.9.2
