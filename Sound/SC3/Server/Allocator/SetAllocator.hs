@@ -15,16 +15,16 @@ import qualified Sound.SC3.Server.Allocator.Range as Range
 data SetAllocator i =
     SetAllocator
         {-# UNPACK #-} !(Range i)
-        {-# UNPACK #-} !(Set.BitSet i)
+                       !(Set.BitSet i)
                        !i
         deriving (Eq, Show)
 
-cons :: Range i -> SetAllocator i
+cons :: Integral i => Range i -> SetAllocator i
 cons r = SetAllocator r Set.empty (Range.begin r)
 
 -- | Convert an id to a bit index.
 --
--- This is necessary to keep the BitSet size bounded between [0, numIds[.
+-- This is necessary to keep the BitSet size bounded between [0, numIds).
 toBit :: Integral i => Range i -> i -> i
 toBit r i = i - Range.begin r
 

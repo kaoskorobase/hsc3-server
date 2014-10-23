@@ -29,6 +29,7 @@ module Sound.SC3.Server.State.Monad (
 , SyncIdAllocator
 , sync
 , unsafeSync
+, asTransport
 -- * Concurrency
 , fork
 ) where
@@ -48,7 +49,7 @@ import qualified Control.Monad.Trans.Reader as R
 import           Sound.OSC (Bundle(..), Datum(Int32), Message(..), Packet(..), immediately)
 import           Sound.OSC.Transport.Monad (DuplexOSC, RecvOSC(..), SendOSC(..), Transport)
 import qualified Sound.SC3.Server.Allocator as A
-import           Sound.SC3.Server.Command (notify)
+import           Sound.SC3.Server.Command.Core (notify)
 import           Sound.SC3.Server.Connection (Connection)
 import qualified Sound.SC3.Server.Connection as C
 import qualified Sound.SC3.Server.Notification as N

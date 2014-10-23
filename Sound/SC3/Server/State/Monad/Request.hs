@@ -25,7 +25,7 @@ import qualified Control.Monad.Trans.Class as Trans
 import qualified Control.Monad.Trans.State as State
 import           Data.IORef (newIORef, readIORef, writeIORef)
 import           Sound.OSC.Transport.Monad (SendOSC(..))
-import qualified Sound.SC3.Server.Command as C
+import qualified Sound.SC3.Server.Command.Generic as C
 import           Sound.SC3.Server.Notification (Notification)
 import qualified Sound.SC3.Server.Notification as N
 import           Sound.SC3.Server.State.Monad.Class (MonadIdAllocator(..), RequestOSC, MonadServer)

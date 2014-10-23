@@ -5,7 +5,7 @@ import           Sound.SC3.Server.State.Monad.Command
 -- You need the hsc3-server-internal package in order to use the internal server
 --import           Sound.SC3.Server.Monad.Process.Internal (withDefaultInternal)
 import           Sound.SC3.Server.State.Monad.Process (withDefaultSynth)
-import qualified Sound.OpenSoundControl as OSC
+import qualified Sound.OSC as OSC
 
 sine = out 0 $ pan2 x (sinOsc KR 1 0) 1
     where x = sinOsc AR (control KR "freq" 440) 0

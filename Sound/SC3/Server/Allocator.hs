@@ -74,7 +74,13 @@ class IdAllocator a where
 --
 -- Returns the list of IDs and the modified allocator.
 allocMany :: (IdAllocator a, Failure AllocFailure m) => Int -> a -> m ([Id a], a)
-allocMany n a = go n a []
+allocMany n a
+    | n <= 0 = return ([], a)
+    | n > numAvailable (statistics a) =
+        error $ "allocMany: Requesting "
+                ++ show n ++ " ids but only "
+                ++ show (numAvailable (statistics a)) ++ " available"
+    | otherwise = go n a []
   where
     go 0 a is = return (is, a)
     go !n !a is = do
