@@ -1,5 +1,7 @@
 **hsc3-server** is a Haskell library for managing [SuperCollider](http://supercollider.sourceforge.net) server resources such as node, buffer and bus ids. It also provides synchronization primitives.
 
+[![Build Status](https://travis-ci.org/kaoskorobase/hsc3-server.svg?branch=master)](https://travis-ci.org/kaoskorobase/hsc3-server)
+
 ### Installation
 
     cabal install hsc3-server
