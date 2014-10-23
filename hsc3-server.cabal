@@ -20,6 +20,10 @@ Tested-With:        GHC == 7.4
 Build-Type:         Simple
 Cabal-Version:      >= 1.9.2
 
+Extra-Source-Files:
+  CHANGELOG.md
+  README.md
+
 Flag build-examples
     Description:    Build example programs
     Default:        False
