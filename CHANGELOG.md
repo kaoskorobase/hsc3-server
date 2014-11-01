@@ -1,3 +1,7 @@
+### [v0.9.1](https://github.com/kaoskorobase/hsc3-server/tree/v0.9.1)
+
+* Update `hsc3` to version 0.15
+
 ### [v0.6.0](https://github.com/kaoskorobase/hsc3-server/tree/v0.6.0)
 
 * Add `Control.Failure.Failure` instance to `Sound.SC3.Server.State.Monad.Server`
