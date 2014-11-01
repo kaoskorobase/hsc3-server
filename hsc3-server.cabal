@@ -55,7 +55,7 @@ Library
       , failure >= 0.2
       , hashtables >= 1.0
       , hosc >= 0.14
-      , hsc3 >= 0.14
+      , hsc3 >= 0.15
       , hsc3-process == 0.10.*
       , lifted-base >= 0.1
       , ListZipper

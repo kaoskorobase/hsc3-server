@@ -128,11 +128,9 @@ import           Sound.SC3.Server.Allocator.Range (Range)
 import qualified Sound.SC3.Server.Allocator.Range as Range
 import qualified Sound.SC3.Server.Synthdef as Synthdef
 import           Sound.SC3.Server.Allocator (AllocFailure(..))
-import           Sound.SC3.Server.Enum (AddAction(..), ErrorScope(..), ErrorMode(..), PrintLevel(..))
-import qualified Sound.SC3.Server.Command.Core as C
-import qualified Sound.SC3.Server.Command.Completion as C
-import qualified Sound.SC3.Server.Command.Double as C
-import qualified Sound.SC3.Server.Command.Int as C
+import           Sound.SC3.Server.Enum (AddAction(..), B_Gen, ErrorScope(..), ErrorMode(..), PrintLevel(..))
+import qualified Sound.SC3.Server.Command as C
+import qualified Sound.SC3.Server.Command.Completion as CC
 import           Sound.SC3.Server.Enum (SoundFileFormat(..), SampleFormat(..))
 import qualified Sound.SC3.Server.Notification as N
 import           Sound.SC3.Server.Process.Options (ServerOptions(..))
@@ -142,7 +140,6 @@ import qualified Sound.SC3.Server.State.Monad as M
 import           Sound.SC3.Server.State.Monad.Class (MonadIdAllocator, MonadServer, RequestOSC, serverOption)
 import           Sound.SC3.Server.State.Monad.Request (Request, Result, after_, finally, mkAsync, mkAsync_, mkSync, waitFor)
 import qualified Sound.SC3.Server.State.Monad.Request as R
-import           Sound.SC3.UGen.Enum (B_Gen)
 
 -- ====================================================================
 -- Utils
@@ -219,15 +216,15 @@ d_recv name ugen
     | length name < 255 = mkAsync $ return (SynthDef name, f)
     | otherwise = error "d_recv: name too long, resulting string exceeds 255 characters"
     where
-        f osc = (mkC C.d_recv C.d_recv' osc) (Synthdef.synthdef name ugen)
+        f osc = (mkC C.d_recv CC.d_recv' osc) (Synthdef.synthdef name ugen)
 
 -- | Load a synth definition from a named file. (Asynchronous)
 d_load :: Monad m => FilePath -> Request m ()
-d_load fp = mkAsync_ $ \osc -> mkC C.d_load C.d_load' osc $ fp
+d_load fp = mkAsync_ $ \osc -> mkC C.d_load CC.d_load' osc $ fp
 
 -- | Load a directory of synth definition files. (Asynchronous)
 d_loadDir :: Monad m => FilePath -> Request m ()
-d_loadDir fp = mkAsync_ $ \osc -> mkC C.d_loadDir C.d_loadDir' osc $ fp
+d_loadDir fp = mkAsync_ $ \osc -> mkC C.d_loadDir CC.d_loadDir' osc $ fp
 
 -- | Remove definition once all nodes using it have ended.
 d_free :: Monad m => SynthDef -> Request m ()
@@ -456,14 +453,14 @@ newtype Buffer = Buffer { bufferId :: BufferId } deriving (Eq, Ord, Show)
 b_alloc :: MonadIdAllocator m => Int -> Int -> Request m Buffer
 b_alloc n c = mkAsync $ do
     bid <- M.alloc M.bufferIdAllocator
-    let f osc = (mkC C.b_alloc C.b_alloc' osc) (fromIntegral bid) n c
+    let f osc = (mkC C.b_alloc CC.b_alloc' osc) (fromIntegral bid) n c
     return (Buffer bid, f)
 
 -- | Allocate buffer space and read a sound file. (Asynchronous)
 b_allocRead :: MonadIdAllocator m => FilePath -> Maybe Int -> Maybe Int -> Request m Buffer
 b_allocRead path fileOffset numFrames = mkAsync $ do
   bid <- M.alloc M.bufferIdAllocator
-  let f osc = (mkC C.b_allocRead C.b_allocRead' osc)
+  let f osc = (mkC C.b_allocRead CC.b_allocRead' osc)
                 (fromIntegral bid) path
                 (maybe 0 id fileOffset)
                 (maybe (-1) id numFrames)
@@ -473,7 +470,7 @@ b_allocRead path fileOffset numFrames = mkAsync $ do
 b_allocReadChannel :: MonadIdAllocator m => FilePath -> Maybe Int -> Maybe Int -> [Int] -> Request m Buffer
 b_allocReadChannel path fileOffset numFrames channels = mkAsync $ do
   bid <- M.alloc M.bufferIdAllocator
-  let f osc = (mkC C.b_allocReadChannel C.b_allocReadChannel' osc)
+  let f osc = (mkC C.b_allocReadChannel CC.b_allocReadChannel' osc)
                 (fromIntegral bid) path
                 (maybe 0 id fileOffset)
                 (maybe (-1) id numFrames)
@@ -490,7 +487,7 @@ b_read :: Monad m =>
  -> Bool
  -> Request m ()
 b_read (Buffer bid) path fileOffset numFrames bufferOffset leaveOpen =
-  mkAsync_ $ \osc -> (mkC C.b_read C.b_read' osc)
+  mkAsync_ $ \osc -> (mkC C.b_read CC.b_read' osc)
                       (fromIntegral bid) path
                       (maybe 0 id fileOffset)
                       (maybe (-1) id numFrames)
@@ -508,7 +505,7 @@ b_readChannel :: MonadIO m =>
  -> [Int]
  -> Request m ()
 b_readChannel (Buffer bid) path fileOffset numFrames bufferOffset leaveOpen channels =
-  mkAsync_ $ \osc -> (mkC C.b_readChannel C.b_readChannel' osc)
+  mkAsync_ $ \osc -> (mkC C.b_readChannel CC.b_readChannel' osc)
                       (fromIntegral bid) path
                       (maybe 0 id fileOffset)
                       (maybe (-1) id numFrames)
@@ -531,7 +528,7 @@ b_write (Buffer bid) path
         fileOffset numFrames
         leaveOpen = mkAsync_ f
     where
-        f osc = (mkC C.b_write C.b_write' osc)
+        f osc = (mkC C.b_write CC.b_write' osc)
                     (fromIntegral bid) path
                     soundFileFormat
                     sampleFormat
@@ -544,13 +541,13 @@ b_free :: MonadIdAllocator m => Buffer -> Request m ()
 b_free b = mkAsync $ do
     let bid = bufferId b
     M.free M.bufferIdAllocator bid
-    let f osc = (mkC C.b_free C.b_free' osc) (fromIntegral bid)
+    let f osc = (mkC C.b_free CC.b_free' osc) (fromIntegral bid)
     return ((), f)
 
 -- | Zero sample data. (Asynchronous)
 b_zero :: MonadIO m => Buffer -> Request m ()
 b_zero buffer = mkAsync_ $ \osc ->
-  (mkC C.b_zero C.b_zero' osc)
+  (mkC C.b_zero CC.b_zero' osc)
     (fromIntegral (bufferId buffer))
 
 -- | Set sample values.
@@ -605,7 +602,8 @@ b_gen_copy buffer sampleOffset srcBuffer srcSampleOffset numSamples =
 
 -- | Close attached soundfile and write header information. (Asynchronous)
 b_close :: Monad m => Buffer -> Request m ()
-b_close buffer = mkAsync_ $ \osc -> mkC C.b_close C.b_close' osc $ fromIntegral (bufferId buffer)
+b_close buffer = mkAsync_ $ \osc ->
+  mkC C.b_close CC.b_close' osc $ fromIntegral (bufferId buffer)
 
 -- | Request 'BufferInfo'.
 b_query :: MonadIO m => Buffer -> Request m (Result N.BufferInfo)
