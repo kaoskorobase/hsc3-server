@@ -5,9 +5,7 @@ Description:
     This library provides abstractions for managing SuperCollider server
     resources like node, buffer and bus ids and synchronization primitives.
     .
-    ChangeLog: <https://github.com/kaoskorobase/hsc3-server/blob/master/ChangeLog.md>
-    .
-    Examples: <https://github.com/kaoskorobase/hsc3-server/tree/master/examples>
+    To get started, have a look at the <https://github.com/kaoskorobase/hsc3-server/tree/master/examples examples>.
 License:            GPL
 License-File:       LICENSE
 Category:           Sound
