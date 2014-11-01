@@ -19,7 +19,7 @@ module Sound.SC3.Server.Allocator.Range (
   , join
 ) where
 
-import Prelude hiding (last, null)
+import Prelude hiding (join, last, null)
 
 -- $setup
 -- >>> import Control.Applicative ((<$>), (<*>))
