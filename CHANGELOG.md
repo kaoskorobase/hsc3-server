@@ -1,3 +1,7 @@
+### [v0.9.2](https://github.com/kaoskorobase/hsc3-server/tree/v0.9.2)
+
+* Add changes in CHANGELOG
+
 ### [v0.9.1](https://github.com/kaoskorobase/hsc3-server/tree/v0.9.1)
 
 * Update `hsc3` to version 0.15
