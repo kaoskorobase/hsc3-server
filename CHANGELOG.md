@@ -1,3 +1,7 @@
+### v0.10.0
+
+* Upgrade to `monad-control` version `1.0`
+
 ### [v0.9.2](https://github.com/kaoskorobase/hsc3-server/tree/v0.9.2)
 
 * Add changes in CHANGELOG
