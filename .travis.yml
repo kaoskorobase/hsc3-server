@@ -1,2 +1,10 @@
 language: haskell
-ghc: 7.8.3
+ghc: 7.8
+deploy:
+  provider: hackage
+  username: StefanKersten
+  password:
+    secure: XalJJYBCZCqqpju3iO0mzmN4YU8/Ayy8wduziBnR/MuHr1IL+6SGZo2y8kutJ/3mQnKAycXaV44mu3CBx3p1ckPsvFkPRAjt9VIR9bkzPeejg/AVxLRNqotMQnQWW0/VO+z74Ca+fJRqeX4KDCqkaLvtt2ZhnXOc6QGrL+qFN+A=
+  on:
+    repo: kaoskorobase/hsc3-server
+    branch: master

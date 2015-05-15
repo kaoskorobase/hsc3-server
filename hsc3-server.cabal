@@ -1,5 +1,5 @@
 Name:               hsc3-server
-Version:            0.9.2
+Version:            0.10.0
 Synopsis:           SuperCollider server resource management and synchronization.
 Description:
     This library provides abstractions for managing SuperCollider server
@@ -57,7 +57,7 @@ Library
       , hsc3-process == 0.10.*
       , lifted-base >= 0.1
       , ListZipper
-      , monad-control >= 0.3
+      , monad-control >= 1.0
       , resourcet >= 0.3
       , transformers >= 0.2
       , transformers-base >= 0.4
