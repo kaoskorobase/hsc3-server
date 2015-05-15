@@ -81,13 +81,13 @@ instance MonadBase IO Server where
   liftBase = liftIO
 
 instance MonadBaseControl IO Server where
-  newtype StM Server a = StM_Server a
+  type StM Server a = a
   {-# INLINE liftBaseWith #-}
   liftBaseWith f = do
     s <- Server R.ask
-    liftIO $ f $ flip runReaderT s . unServer . fmap StM_Server
+    liftIO $ f $ flip runReaderT s . unServer
   {-# INLINE restoreM #-}
-  restoreM (StM_Server a) = return a
+  restoreM = return
 
 -- | Run a 'Server' computation given a connection and return the result.
 runServer :: Server a -> ServerOptions -> Connection -> IO a
