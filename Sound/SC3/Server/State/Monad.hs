@@ -149,7 +149,7 @@ instance SendOSC Server where
   sendOSC osc = withConnection (flip C.send osc)
 
 newtype AsTransport a = AsTransport (ReaderT (Connection, Conc.Chan Packet) IO a)
-  deriving (Functor, Monad, MonadIO)
+  deriving (Functor, Applicative, Monad, MonadIO)
 
 instance SendOSC AsTransport where
   sendOSC osc = AsTransport $ R.asks fst >>= liftIO . flip C.send osc
