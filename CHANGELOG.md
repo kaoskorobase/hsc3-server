@@ -1,21 +1,21 @@
-### v0.10.0
+### [v0.10.0](https://github.com/kaoskorobase/hsc3-server/releases/tag/v0.10.0)
 
 * Upgrade to `monad-control` version `1.0`
 
-### [v0.9.2](https://github.com/kaoskorobase/hsc3-server/tree/v0.9.2)
+### [v0.9.2](https://github.com/kaoskorobase/hsc3-server/releases/tag/v0.9.2)
 
 * Add changes in CHANGELOG
 
-### [v0.9.1](https://github.com/kaoskorobase/hsc3-server/tree/v0.9.1)
+### [v0.9.1](https://github.com/kaoskorobase/hsc3-server/releases/tag/v0.9.1)
 
 * Update `hsc3` to version 0.15
 
-### [v0.6.0](https://github.com/kaoskorobase/hsc3-server/tree/v0.6.0)
+### [v0.6.0](https://github.com/kaoskorobase/hsc3-server/releases/tag/v0.6.0)
 
 * Add `Control.Failure.Failure` instance to `Sound.SC3.Server.State.Monad.Server`
 * Add `hostname` parameter to `Sound.SC3.Server.State.Monad.Process.withTransport`
 
-### [v0.5.0](https://github.com/kaoskorobase/hsc3-server/tree/v0.5.0)
+### [v0.5.0](https://github.com/kaoskorobase/hsc3-server/releases/tag/v0.5.0)
 
 * Use distinct types for audio and control buses and IDs
 * Factor monad type classes into `Sound.SC3.Server.Monad.Class`
@@ -37,6 +37,6 @@
   `Control.Concurrent.Lifted.fork`. `fork` may be removed from the interface in
   future versions.
 
-### [v0.3.0](https://github.com/kaoskorobase/hsc3-server/tree/v0.3.0)
+### [v0.3.0](https://github.com/kaoskorobase/hsc3-server/releases/tag/v0.3.0)
 
 * Add new modules `Sound.SC3.Server.Monad.Send` and `Sound.SC3.Server.Monad.Command` providing abstractions for synchronous and asynchronous commands and completion messages
